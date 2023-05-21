@@ -10,6 +10,9 @@ def write_to_csv(playlist_data):
         spamwriter.writerow(['Spam', 'Lovely Spam', 'Wonderful Spam'])    
     return
 
+def preprocess_artist_data():
+    return
+
 def read_from_csv():
     with open('playlist_data.csv', newline='') as csvfile:
         spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
@@ -32,7 +35,8 @@ def read_all_files(data_address):
                 playlist_data = {}
                 playlist_data['user_id'] = user_id
                 playlist_data['playlist_name'] = playlist['name']
-                playlist_data['tracks'] = playlist['tracks']
+                # for tracks in playlist_data:
+                #     playlist_data['tracks'] = playlist['tracks']
                                     
                 training_data.append(playlist_data)
             
