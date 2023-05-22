@@ -2,7 +2,7 @@ import csv
 import json
 import os
 
-def write_all_data_to_csv(data, type):
+def write_universe_data_to_csv(data, type):
     if type == 'artists':
         csvfile = 'all_artists.csv'
     elif type == 'albums':
@@ -15,7 +15,7 @@ def write_all_data_to_csv(data, type):
         writer = csv.writer(f)
         writer.writerow(data)
 
-def read_all_data_from_json(data_address):
+def read_universe_data_from_json(data_address):
     print(f'Reading JSON files from directory {data_address}')
 
     files = os.listdir(data_address)
@@ -40,9 +40,9 @@ def read_all_data_from_json(data_address):
             finally:
                 f.close()        
 
-    write_all_data_to_csv(all_artists, type='artists') # len = 295860
-    write_all_data_to_csv(all_tracks, type='tracks')   # len = 2262292
-    write_all_data_to_csv(all_albums, type='albums')   # len = 734684     
+    write_universe_data_to_csv(all_artists, type='artists') # len = 295860
+    write_universe_data_to_csv(all_tracks, type='tracks')   # len = 2262292
+    write_universe_data_to_csv(all_albums, type='albums')   # len = 734684     
 
 def read_all_files(data_address):
     print(f'Reading JSON files from directory {data_address}')
@@ -51,9 +51,6 @@ def read_all_files(data_address):
     files = os.listdir(data_address)
     user_id = 0
 
-    all_artists = set()
-    all_tracks = set()
-    all_albums = set()
     for filename in files:
         with open(data_address + filename) as f:
             try:        
