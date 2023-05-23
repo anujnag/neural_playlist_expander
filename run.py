@@ -4,6 +4,8 @@ import torch.optim as optim
 
 from data_preprocessor import read_all_files
 from model import LightNet, DeepNet
+from evaluator import evaluate_model
+from feature_builder import read_universe_data_from_csv
 from utils import get_positive_track, get_negative_track
 
 num_features = 15
@@ -40,6 +42,12 @@ def train(training_data, all_tracks):
         if epoch % 100 == 0:
             print(f'Epoch {epoch} loss = {epoch_loss}')
 
+    return net        
+
+def evaluate(net, eval_data):
+    metrics = evaluate_model(net, eval_data)
+    return metrics 
+
 if __name__ == '__main__':
     print('Running Model...')
 
@@ -49,6 +57,9 @@ if __name__ == '__main__':
     else:
         playlist_data = read_all_files('../spotify_million_playlist_dataset/data/')
 
-    # print(playlist_data)
+    print(playlist_data)
+    all_tracks = read_universe_data_from_csv('tracks')
+    model = train(playlist_data[:80000], all_tracks)
+    evaluate(model, playlist_data[80000:])
 
     print('Finished Running Model.')
