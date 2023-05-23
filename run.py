@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from data_preprocessor import read_all_files
-from model import Net
+from model import LightNet, DeepNet
 
 def train():
     net = Net()
