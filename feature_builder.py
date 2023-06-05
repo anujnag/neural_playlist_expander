@@ -13,6 +13,9 @@ csv.field_size_limit(sys.maxsize)
 client_id = 'cbe2f0291d0644f99e25d4bf3769373a'
 client_secret = '1131a55577304e9baaa968823d73c504'
 
+def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
+    return
+
 def write_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'
     

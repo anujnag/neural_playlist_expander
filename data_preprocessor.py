@@ -49,7 +49,6 @@ def read_universe_data_from_json(data_address):
 def preprocess_all_playlists(data_address):
     print(f'Reading JSON files from directory {data_address}')
 
-    training_data = []
     files = os.listdir(data_address)
 
     processed_playlists = load_ids_from_csv('playlists')
@@ -78,5 +77,3 @@ def preprocess_all_playlists(data_address):
                 print(f'Failed to read file {filename} because of error: {str(e)}')    
             finally:
                 f.close()
-
-# preprocess_all_playlists('../spotify_million_playlist_dataset/data/')

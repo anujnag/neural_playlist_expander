@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from model import LightNet, DeepNet
-from feature_builder import fetch_track_data, read_universe_from_csv
+from feature_builder import build_feature_tensors, fetch_track_data, read_universe_from_csv
 from utils import get_positive_track, get_negative_track
 
 
@@ -28,17 +28,17 @@ def train():
                 positive_track_id = get_positive_track(playlist_track_ids)
                 negative_track_id = get_negative_track(playlist_track_ids, all_track_ids)
 
+                # Ensure feature data for all track ids is cached locally
                 fetch_track_data(playlist_track_ids + [negative_track_id])
 
-        csvfile.close()
-        # for playlist in training_data:
-        #     playlist_features = torch.zeros()
-        #     for track in playlist:
-        #         playlist_features += track / len(playlist)
+                # Build feature tensors
+                playlist_embedding, pos_track_embedding, neg_track_embedding = build_feature_tensors(
+                    playlist_track_ids, positive_track_id, negative_track_id
+                )
 
-        #     positive_track = get_positive_track(playlist)
-        #     negative_track = get_negative_track(playlist, all_tracks)
-            
+        csvfile.close()
+        
+
         #     playlist_embedding = net(playlist_features)
         #     positive_embedding = net(positive_track)
         #     negative_embedding = net(negative_track)
