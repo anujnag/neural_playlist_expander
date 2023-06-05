@@ -2,19 +2,44 @@ import csv
 import json
 import requests
 import time
+import torch
 import sys
 from consts import *
 
 csv.field_size_limit(sys.maxsize)
 
 # ID and Secret masked for security reasons
-# client_id = 'CLIENT-ID'
-# client_secret = 'CLIENT-SECRET'
-client_id = 'cbe2f0291d0644f99e25d4bf3769373a'
-client_secret = '1131a55577304e9baaa968823d73c504'
+client_id = 'CLIENT-ID'
+client_secret = 'CLIENT-SECRET'
 
 def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
-    return
+    playlist_features = torch.zeros(track_feature_dim)
+    pos_track_features = torch.zeros(track_feature_dim)
+    neg_track_features = torch.zeros(track_feature_dim)
+    
+    track_count = 0
+    track_limit = len(playlist_track_ids) + 1
+    
+    with open('tracks_data.csv', newline='', encoding='UTF8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            if track_count == track_limit:
+                break
+
+            track_id = int(row['track_id'])
+
+            # check if relevant entry            
+            if track_id not in playlist_track_ids or track_id != negative_track_id:
+                continue
+
+            if track_id in playlist_track_ids:
+                if track_id == positive_track_id:
+                    pass
+                track_count += 1
+
+        csvfile.close()        
+
+    return playlist_features, pos_track_features, neg_track_features
 
 def write_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'

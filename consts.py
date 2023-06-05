@@ -3,7 +3,7 @@
 #
 
 artist_feature_dim = 10
-track_feature_dim = 15
+track_feature_dim = 60
 
 playlist_fieldnames = ['playlist_id',
                        'playlist_tracks']

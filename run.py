@@ -32,7 +32,7 @@ def train():
                 fetch_track_data(playlist_track_ids + [negative_track_id])
 
                 # Build feature tensors
-                playlist_embedding, pos_track_embedding, neg_track_embedding = build_feature_tensors(
+                playlist_features, pos_track_features, neg_track_features = build_feature_tensors(
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
 
