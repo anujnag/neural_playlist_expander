@@ -1,4 +1,5 @@
 import torch.nn as nn
+from consts import track_feature_dim
 
 num_features = 15
 

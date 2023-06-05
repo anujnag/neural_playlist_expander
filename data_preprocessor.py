@@ -1,6 +1,8 @@
 import csv
 import json
 import os
+from consts import blacklisted_track_ids
+from feature_builder import append_data_to_csv, load_ids_from_csv
 
 def write_universe_data_to_csv(data, type):
     if type == 'artists':
@@ -35,7 +37,7 @@ def read_universe_data_from_json(data_address):
                         all_artists.add(artist_id)
                         all_albums.add(album_id)
                         all_tracks.add(track_id)
-            except Exception as e: # work on python 3.x
+            except Exception as e:
                 print(f'Failed to read file {filename} because of error: {str(e)}')    
             finally:
                 f.close()        
@@ -44,34 +46,37 @@ def read_universe_data_from_json(data_address):
     write_universe_data_to_csv(all_tracks, type='tracks')   # len = 2262292
     write_universe_data_to_csv(all_albums, type='albums')   # len = 734684     
 
-def read_all_files(data_address):
+def preprocess_all_playlists(data_address):
     print(f'Reading JSON files from directory {data_address}')
 
     training_data = []
     files = os.listdir(data_address)
-    user_id = 0
+
+    processed_playlists = load_ids_from_csv('playlists')
 
     for filename in files:
         with open(data_address + filename) as f:
             try:        
-                # parse playlist data
                 json_data = json.load(f)
-                # for playlist in json_data['playlists']:
-                    # playlist_data = {}
-                    # playlist_data['user_id'] = user_id
-                    # playlist_data['playlist_name'] = playlist['name']
-                    # for track in playlist['tracks']:
-                        
-                                        
-                    # training_data.append(playlist_data)
-                
-                # user_id += 1
-            except Exception as e: # work on python 3.x
+                for playlist in json_data['playlists']:
+                    
+                    # Don't duplicate effort
+                    if playlist['pid'] in processed_playlists:
+                        continue
+
+                    playlist_data = {}
+                    playlist_data['playlist_id'] = playlist['pid']
+                    playlist_data['playlist_tracks'] = []
+                    for track in playlist['tracks']:
+                        track_id = track['track_uri'].split(":")[2]
+                        if track_id not in blacklisted_track_ids:
+                            playlist_data['playlist_tracks'].append(track_id)
+                            
+                    # write playlist data to csv
+                    append_data_to_csv(playlist_data, 'playlists')
+            except Exception as e:
                 print(f'Failed to read file {filename} because of error: {str(e)}')    
             finally:
                 f.close()
 
-    return training_data
-
-def split_dataset(playlist_data):
-    return playlist_data
+# preprocess_all_playlists('../spotify_million_playlist_dataset/data/')

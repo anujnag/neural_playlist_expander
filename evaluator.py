@@ -11,7 +11,7 @@ def get_class(class_divpnt, idx):
 def get_class_dist(cls_list, num_cls):
     cls_dist = [1e-9] * num_cls
     for i in cls_list:
-        if i is not -1:
+        if i != -1:
             cls_dist[i]+=1
     return cls_dist
 

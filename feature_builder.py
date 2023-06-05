@@ -1,28 +1,32 @@
 import csv
 import json
 import requests
+import time
+import sys
+from consts import *
 
-artist_fieldnames = ['artist_id', 'artist_name', 'artist_genres', 'artist_followers', 'artist_popularity', 'artist_type', 'artist_top_tracks', 'related_artists']
-track_fieldnames = ['track_id']
-client_id = 'CLIENT-ID' # Masked out entry, update while using
-client_secret = 'CLIENT-SECRET' # Masked out entry, update while using
+csv.field_size_limit(sys.maxsize)
 
-def write_data_to_csv(data_dicts, type):
+# ID and Secret masked for security reasons
+# client_id = 'CLIENT-ID'
+# client_secret = 'CLIENT-SECRET'
+client_id = 'cbe2f0291d0644f99e25d4bf3769373a'
+client_secret = '1131a55577304e9baaa968823d73c504'
+
+def write_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'
     
-    if type == 'artist':
+    if type == 'artists':
         fieldnames = artist_fieldnames
-    elif type == 'track':
-        fieldnames = track_fieldnames    
+    elif type == 'tracks':
+        fieldnames = track_fieldnames
+    elif type == 'playlists':
+        fieldnames = playlist_fieldnames        
     
     with open(csv_filename, 'w', newline='', encoding='UTF8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
         writer.writeheader()
-        print(data_dicts)
-        for dict in data_dicts:
-            writer.writerow(dict)
-
+        writer.writerow(data_dict)
         csvfile.close()    
 
 def append_data_to_csv(data_dict, type):
@@ -30,6 +34,10 @@ def append_data_to_csv(data_dict, type):
     
     if type == 'artists':
         fieldnames = artist_fieldnames
+    elif type == 'tracks':
+        fieldnames = track_fieldnames
+    elif type == 'playlists':
+        fieldnames = playlist_fieldnames         
     
     with open(csv_filename, 'a', newline='', encoding='UTF8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -42,6 +50,10 @@ def load_ids_from_csv(type):
 
     if type == 'artists':
         fieldnames = artist_fieldnames
+    elif type == 'tracks':
+        fieldnames = track_fieldnames
+    elif type == 'playlists':
+        fieldnames = playlist_fieldnames        
 
     with open(csv_filename, newline='', encoding='UTF8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -51,7 +63,7 @@ def load_ids_from_csv(type):
 
     return id_set        
 
-def read_universe_data_from_csv(type):
+def read_universe_from_csv(type):
     if type == 'artists':
         csvfile = 'all_artists.csv'
     elif type == 'albums':
@@ -86,7 +98,6 @@ def refresh_access_token():
     return token_type, access_token
 
 def retry_http_call(response, request_url, headers):
-    print(request_url)
     if response.status_code == 401:
         token_type, access_token = refresh_access_token()
         auth_payload = token_type + '  ' + access_token
@@ -99,13 +110,22 @@ def retry_http_call(response, request_url, headers):
         print('Rate Limit Exceeded, sleeping for ' + str(retry_after_secs) + ' seconds')
         time.sleep(retry_after_secs)
         response = requests.get(request_url, headers=headers)
+    elif response.status_code == 504 or response.status_code == 404:
+        print('Response status code is ' + str(response.status_code) + ', sleeping for 15 seconds')
+        print(request_url)
+        time.sleep(15)
+        response = requests.get(request_url, headers=headers)
+    else:
+        print(response.text)
+        print(request_url)
+        print('Response status code not recognized: ' + str(response.status_code))
 
-    return response, headers    
+    return response, headers
 
-def fetch_artist_data():
+def fetch_artist_data(artist_ids):
     # Get access token and build auth headers
+    # token_type, access_token = 'Bearer', 'BQA-zdYyP0mjet4LD8A_rPVuVS5xz5Jt1PRmDi7z0AYIFX8QR-G4oaxUFaVosFIc53to7WuXWRRBovyTAZEX-yQm1rmcoid1wJsZWGJfV17Go7V2NiE'
     token_type, access_token = refresh_access_token()
-    # token_type, access_token = refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
         'Authorization': auth_payload,
@@ -114,18 +134,13 @@ def fetch_artist_data():
     # Load already fetched ids
     fetched_artists = load_ids_from_csv('artists')
     
-    # Load all artist ids in the universe
-    all_artist_ids = read_universe_data_from_csv('artists')
-
-    for idx in range(len(all_artist_ids)):
-        artist_id = all_artist_ids[idx]
-
+    for artist_id in artist_ids:
         # Don't duplicate effort
         if artist_id in fetched_artists:
             continue
 
         # Rate limit throttling
-        # time.sleep(1)
+        time.sleep(2)
         
         # Populate artist data
         artist_data = {}
@@ -172,38 +187,161 @@ def fetch_artist_data():
             artist_data['related_artists'].append(rel_artist['id'])
 
         # Append data to csv
-        print('Writing data for artist ' + str(idx) + ': ' + artist_data['artist_name'])
+        print('Writing data for artist: ' + artist_data['artist_name'])
         append_data_to_csv(artist_data, 'artists')
 
-def fetch_track_data():
+def fetch_track_data(track_ids):
+    # Get access token and build auth headers
     token_type, access_token = refresh_access_token()
     auth_payload = token_type + '  ' + access_token
+    headers = {
+        'Authorization': auth_payload,
+    }
 
-    track_data_dicts = []
-    all_track_ids = read_universe_data_from_csv('tracks')
+    # Load already fetched ids
+    fetched_tracks = load_ids_from_csv('tracks')
+    
 
-    print(access_token)
-    count = 0
+    for track_id in track_ids:        
+        # Don't duplicate effort
+        if track_id in fetched_tracks or track_id in blacklisted_track_ids:
+            continue
 
-    for track_id in all_track_ids:
-        if count > 0:
-            break
-
-        track_data = { 'track_id' : track_id }
-
-        headers = {
-            'Authorization': auth_payload,
-        }
-
+        # Rate limit throttling
+        time.sleep(2)
+        
+        # Populate artist data
+        track_data = {}
+        
         response = requests.get('https://api.spotify.com/v1/tracks/' + track_id, headers=headers)
+        
+        while response.status_code != 200:
+            request_url = 'https://api.spotify.com/v1/tracks/' + track_id
+            response, headers = retry_http_call(response, request_url, headers)
+        
+        response_dict = json.loads(response.text)
 
-        if(response.status_code == 401):
-            access_token = refresh_access_token()
-        else:
-            response_dict = json.loads(response.text)
-            track_data['artist_name'] = response_dict['name']
-        track_data_dicts.append(track_data)
+        track_data['track_id'] = track_id
+        track_data['track_name'] = response_dict['name']
+        track_data['track_number'] = response_dict['track_number']
+        track_data['track_popularity'] = response_dict['popularity']
+        track_data['track_is_explicit'] = response_dict['explicit']
+        track_data['track_duration'] = response_dict['duration_ms']
+        track_data['track_disc_number'] = response_dict['disc_number']
+        track_data['track_album'] = response_dict['album']['id']
+        track_data['track_release_year'] = response_dict['album']['release_date'].split('-')[0]
+        track_data['track_artists'] = []
+        for artist in response_dict['artists']:
+            track_data['track_artists'].append(artist['id'])
 
-        count += 1
+        # Fetch track's audio features            
+        response = requests.get('https://api.spotify.com/v1/audio-features/' + track_id, headers=headers)
+        
+        while response.status_code != 200:
+            request_url = 'https://api.spotify.com/v1/audio-features/' + track_id
+            response, headers = retry_http_call(response, request_url, headers)
+        
+        response_dict = json.loads(response.text)
+        track_data['track_acousticness'] = response_dict['acousticness']
+        track_data['track_danceability'] = response_dict['danceability']
+        track_data['track_energy'] = response_dict['energy']
+        track_data['track_instrumentalness'] = response_dict['instrumentalness']
+        track_data['track_key'] = response_dict['key']
+        track_data['track_liveness'] = response_dict['liveness']
+        track_data['track_loudness'] = response_dict['loudness']
+        track_data['track_mode'] = response_dict['mode']
+        track_data['track_speechiness'] = response_dict['speechiness']
+        track_data['track_tempo'] = response_dict['tempo']
+        track_data['track_time_signature'] = response_dict['time_signature']
+        track_data['track_valence'] = response_dict['valence']
 
-    write_data_to_csv(track_data_dicts, 'track')
+        # Fetch track's audio analysis
+        response = requests.get('https://api.spotify.com/v1/audio-analysis/' + track_id, headers=headers)
+        while response.status_code != 200:
+            request_url = 'https://api.spotify.com/v1/audio-analysis/' + track_id
+            response, headers = retry_http_call(response, request_url, headers)
+            
+        response_dict = json.loads(response.text)
+        track_data['track_num_samples'] = response_dict['track']['num_samples']
+        track_data['track_analysis_sample_rate'] = response_dict['track']['analysis_sample_rate']
+        track_data['track_analysis_channels'] = response_dict['track']['analysis_channels']        
+        track_data['track_end_of_fade_in'] = response_dict['track']['end_of_fade_in']
+        track_data['track_start_of_fade_out'] = response_dict['track']['start_of_fade_out']
+        track_data['track_tempo_confidence'] = response_dict['track']['tempo_confidence']
+        track_data['track_time_signature_confidence'] = response_dict['track']['time_signature_confidence']
+        track_data['track_key_confidence'] = response_dict['track']['key_confidence']
+        track_data['track_mode_confidence'] = response_dict['track']['mode_confidence']
+
+        track_data['track_bars_start'] = []
+        track_data['track_bars_duration'] = []
+        track_data['track_bars_confidence'] = []
+        for bar in response_dict['bars']:
+            track_data['track_bars_start'].append(bar['start'])
+            track_data['track_bars_duration'].append(bar['duration'])
+            track_data['track_bars_confidence'].append(bar['confidence'])
+
+        track_data['track_beats_start'] = []
+        track_data['track_beats_duration'] = []
+        track_data['track_beats_confidence'] = []
+        for beat in response_dict['beats']:
+            track_data['track_beats_start'].append(beat['start'])
+            track_data['track_beats_duration'].append(beat['duration'])
+            track_data['track_beats_confidence'].append(beat['confidence'])    
+
+        track_data['track_sections_start'] = []
+        track_data['track_sections_duration'] = []
+        track_data['track_sections_confidence'] = []
+        track_data['track_sections_loudness'] = []
+        track_data['track_sections_tempo'] = []
+        track_data['track_sections_tempo_confidence'] = []
+        track_data['track_sections_key'] = []
+        track_data['track_sections_key_confidence'] = []
+        track_data['track_sections_mode'] = []
+        track_data['track_sections_mode_confidence'] = []
+        track_data['track_sections_time_signature'] = []
+        track_data['track_sections_time_signature_confidence'] = []
+        for section in response_dict['sections']:
+            track_data['track_sections_start'].append(section['start'])
+            track_data['track_sections_duration'].append(section['duration'])
+            track_data['track_sections_confidence'].append(section['confidence'])
+            track_data['track_sections_loudness'].append(section['loudness'])
+            track_data['track_sections_tempo'].append(section['tempo'])
+            track_data['track_sections_tempo_confidence'].append(section['tempo_confidence'])
+            track_data['track_sections_key'].append(section['key'])
+            track_data['track_sections_key_confidence'].append(section['key_confidence'])
+            track_data['track_sections_mode'].append(section['mode'])
+            track_data['track_sections_mode_confidence'].append(section['mode_confidence'])
+            track_data['track_sections_time_signature'].append(section['time_signature'])
+            track_data['track_sections_time_signature_confidence'].append(section['time_signature_confidence'])
+
+        track_data['track_segments_start'] = []
+        track_data['track_segments_duration'] = []
+        track_data['track_segments_confidence'] = []
+        track_data['track_segments_loudness_start'] = []
+        track_data['track_segments_loudness_max'] = []
+        track_data['track_segments_loudness_max_time'] = []
+        track_data['track_segments_loudness_end'] = []
+        track_data['track_segments_pitches'] = []
+        track_data['track_segments_timbre'] = []
+        for segment in response_dict['segments']:
+            track_data['track_segments_start'].append(segment['start'])
+            track_data['track_segments_duration'].append(segment['duration'])
+            track_data['track_segments_confidence'].append(segment['confidence'])
+            track_data['track_segments_loudness_start'].append(segment['loudness_start'])
+            track_data['track_segments_loudness_max'].append(segment['loudness_max'])
+            track_data['track_segments_loudness_max_time'].append(segment['loudness_max_time'])
+            track_data['track_segments_loudness_end'].append(segment['loudness_end'])
+            track_data['track_segments_pitches'].append(segment['pitches'])
+            track_data['track_segments_timbre'].append(segment['timbre'])
+
+        track_data['track_tatums_start'] = []
+        track_data['track_tatums_duration'] = []
+        track_data['track_tatums_confidence'] = []
+        for tatum in response_dict['tatums']:
+            track_data['track_tatums_start'].append(tatum['start'])
+            track_data['track_tatums_duration'].append(tatum['duration'])
+            track_data['track_tatums_confidence'].append(tatum['confidence'])
+
+        # Append data to csv
+        print('Writing data for track: ' + track_data['track_name'])
+        append_data_to_csv(track_data, 'tracks')
