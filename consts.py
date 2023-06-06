@@ -79,5 +79,9 @@ track_fieldnames = ['track_id',
                     'track_tatums_duration', 
                     'track_tatums_confidence' ]
 
+
 blacklisted_track_ids = ['42Vx9J2kK6qutsHyec9xgK', 
-                         '6hhz7iJS9m8tfHDQ4MYbTj']                    
+                         '6hhz7iJS9m8tfHDQ4MYbTj',
+                         '4WHjf37BBXUo3WYBmJPdoU',
+                         '6uQKuonTU8VKBz5SHZuQXD']
+                         

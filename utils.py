@@ -3,7 +3,7 @@ from consts import blacklisted_track_ids
 from feature_builder import generate_candidate_list
 
 def get_positive_track(playlist_track_ids):
-    idx = random.randint(0, len(playlist_track_ids))
+    idx = random.randint(0, len(playlist_track_ids) - 1)
     track = playlist_track_ids[idx]
     return track
 

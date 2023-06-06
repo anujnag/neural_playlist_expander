@@ -9,8 +9,8 @@ from consts import *
 csv.field_size_limit(sys.maxsize)
 
 # ID and Secret masked for security reasons
-client_id = 'CLIENT-ID'
-client_secret = 'CLIENT-SECRET'
+# client_id = 'CLIENT-ID'
+# client_secret = 'CLIENT-SECRET'
 
 def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
     playlist_features = torch.zeros(track_feature_dim)
@@ -26,16 +26,19 @@ def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_
             if track_count == track_limit:
                 break
 
-            track_id = int(row['track_id'])
-
             # check if relevant entry            
-            if track_id not in playlist_track_ids or track_id != negative_track_id:
+            if row['track_id'] not in playlist_track_ids or row['track_id'] != negative_track_id:
                 continue
 
-            if track_id in playlist_track_ids:
-                if track_id == positive_track_id:
+            if row['track_id'] in playlist_track_ids:
+                if row['track_id'] == positive_track_id:
                     pass
-                track_count += 1
+                
+
+            if row['track_id'] == negative_track_id:
+                pass
+
+            track_count += 1    
 
         csvfile.close()        
 
@@ -134,6 +137,7 @@ def retry_http_call(response, request_url, headers):
         }
         response = requests.get(request_url, headers=headers)
     elif response.status_code == 429:
+        print(response.headers)
         retry_after_secs = int(response.headers['retry-after']) + 1
         print('Rate Limit Exceeded, sleeping for ' + str(retry_after_secs) + ' seconds')
         time.sleep(retry_after_secs)
@@ -219,7 +223,8 @@ def fetch_artist_data(artist_ids):
         append_data_to_csv(artist_data, 'artists')
 
 def fetch_track_data(track_ids):
-    # Get access token and build auth headers
+    # Get access token and build auth headers    
+    # token_type, access_token = 'Bearer', 'BQCnHwbygCJxTPHUWjv55RMCtTn7c4RAOAzZWM16Q14pquuO94yBufL359Zl6mzhIxMzhmTJJYgzGjLF6GowJVcMP5XFpQVPmdsFOj6Hqj-OSx-cTv0'
     token_type, access_token = refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {

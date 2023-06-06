@@ -32,28 +32,30 @@ def train():
                 fetch_track_data(playlist_track_ids + [negative_track_id])
 
                 # Build feature tensors
-                playlist_features, pos_track_features, neg_track_features = build_feature_tensors(
-                    playlist_track_ids, positive_track_id, negative_track_id
-                )
+                # playlist_features, pos_track_features, neg_track_features = build_feature_tensors(
+                #     playlist_track_ids, positive_track_id, negative_track_id
+                # )
+
+                # playlist_embedding = net(playlist_features)
+                # positive_embedding = net(positive_track)
+                # negative_embedding = net(negative_track)
+
+                # score_pos = torch.dot(playlist_embedding, positive_embedding)
+                # score_neg = torch.dot(playlist_embedding, negative_embedding)
+                # loss = criterion(torch.linalg.norm(playlist_embedding), score_pos, score_neg)
+                # epoch_loss += loss.item()
+
+                # optimizer.zero_grad()
+                # loss.backward()
+                # optimizer.step()
+
+            if epoch % 100 == 0:
+                print(f'Epoch {epoch} loss = {epoch_loss}')
 
         csvfile.close()
         
 
-        #     playlist_embedding = net(playlist_features)
-        #     positive_embedding = net(positive_track)
-        #     negative_embedding = net(negative_track)
-
-        #     score_pos = torch.dot(playlist_embedding, positive_embedding)
-        #     score_neg = torch.dot(playlist_embedding, negative_embedding)
-        #     loss = criterion(torch.linalg.norm(playlist_embedding), score_pos, score_neg)
-        #     epoch_loss += loss.item()
-
-        #     optimizer.zero_grad()
-        #     loss.backward()
-        #     optimizer.step()
-
-        # if epoch % 100 == 0:
-        #     print(f'Epoch {epoch} loss = {epoch_loss}')
+        
 
 # def evaluate(net, eval_data):
 #     metrics = evaluate_model(net, eval_data)
