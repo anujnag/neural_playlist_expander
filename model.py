@@ -1,16 +1,14 @@
 import torch.nn as nn
 from consts import track_feature_dim
 
-num_features = 15
-
 class LightNet(nn.Module):
     def __init__(self):
         super(LightNet, self).__init__()
         self.act = nn.ReLU()
-        self.fc1 = nn.Linear(num_features, 10)
+        self.fc1 = nn.Linear(track_feature_dim, 10)
         self.fc2 = nn.Linear(10, 10)
         self.fc3 = nn.Linear(10, 10)        
-        self.fc4 = nn.Linear(10, num_features)
+        self.fc4 = nn.Linear(10, track_feature_dim)
 
     def forward(self, x):
         x = self.act(self.fc1(x))
@@ -22,14 +20,14 @@ class DeepNet(nn.Module):
     def __init__(self):
         super(DeepNet, self).__init__()
         self.act = nn.ReLU()
-        self.fc1 = nn.Linear(num_features, 10)
+        self.fc1 = nn.Linear(track_feature_dim, 10)
         self.fc2 = nn.Linear(10, 10)
         self.fc3 = nn.Linear(10, 10)
         self.fc4 = nn.Linear(10, 10)
         self.fc5 = nn.Linear(10, 10)
         self.fc6 = nn.Linear(10, 10)
         self.fc7 = nn.Linear(10, 10)        
-        self.fc8 = nn.Linear(10, num_features)
+        self.fc8 = nn.Linear(10, track_feature_dim)
 
     def forward(self, x):
         x = self.act(self.fc1(x))

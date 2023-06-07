@@ -3,25 +3,20 @@ import json
 import requests
 import time
 import torch
-import sys
-from consts import *
 
-csv.field_size_limit(sys.maxsize)
-
-# ID and Secret masked for security reasons
-client_id = 'CLIENT-ID'
-client_secret = 'CLIENT-SECRET'
+import consts
+import utils
 
 def build_track_feature_tensor(track_features):
-    track_tensor = torch.zeros(track_feature_dim)
+    track_tensor = torch.zeros(consts.track_feature_dim)
     
-    for idx in range(track_feature_dim):
-        track_tensor[idx] = float(track_features[track_feature_map[idx]])
+    for idx in range(consts.track_feature_dim):
+        track_tensor[idx] = float(track_features[consts.track_feature_map[idx]])
 
     return track_tensor
 
 def build_playlist_feature_tensor(playlist_track_features):
-    playlist_tensor = torch.zeros(track_feature_dim)
+    playlist_tensor = torch.zeros(consts.track_feature_dim)
     num_tracks = len(playlist_track_features)
 
     for track_features in playlist_track_features:
@@ -30,7 +25,7 @@ def build_playlist_feature_tensor(playlist_track_features):
 
     return playlist_tensor
 
-def build_training_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
+def build_training_features(playlist_track_ids, positive_track_id, negative_track_id):
     track_count = 0
     # All playlist tracks and one negative track
     track_limit = len(playlist_track_ids) + 1
@@ -64,127 +59,20 @@ def build_training_feature_tensors(playlist_track_ids, positive_track_id, negati
     
     return playlist_tensor, pos_track_tensor, neg_track_tensor
 
-def write_data_to_csv(data_dict, type):
-    csv_filename = type + '_data.csv'
-    
-    if type == 'artists':
-        fieldnames = artist_fieldnames
-    elif type == 'tracks':
-        fieldnames = track_fieldnames
-    elif type == 'playlists':
-        fieldnames = playlist_fieldnames        
-    
-    with open(csv_filename, 'w', newline='', encoding='UTF8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerow(data_dict)
-        csvfile.close()    
-
-def append_data_to_csv(data_dict, type):
-    csv_filename = type + '_data.csv'
-    
-    if type == 'artists':
-        fieldnames = artist_fieldnames
-    elif type == 'tracks':
-        fieldnames = track_fieldnames
-    elif type == 'playlists':
-        fieldnames = playlist_fieldnames         
-    
-    with open(csv_filename, 'a', newline='', encoding='UTF8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writerow(data_dict)
-        csvfile.close() 
-
-def load_ids_from_csv(type):
-    csv_filename = type + '_data.csv'
-    id_set = set()
-
-    if type == 'artists':
-        fieldnames = artist_fieldnames
-    elif type == 'tracks':
-        fieldnames = track_fieldnames
-    elif type == 'playlists':
-        fieldnames = playlist_fieldnames        
-
-    with open(csv_filename, newline='', encoding='UTF8') as csvfile:
-        reader = csv.DictReader(csvfile)
-
-        for row in reader:
-            id_set.add(row[fieldnames[0]])
-
-    return id_set        
-
-def read_universe_from_csv(type):
-    if type == 'artists':
-        csvfile = 'all_artists.csv'
-    elif type == 'albums':
-        csvfile = 'all_albums.csv'
-    elif type == 'tracks':
-        csvfile = 'all_tracks.csv'
-
-    with open(csvfile, mode='r', encoding='UTF8') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        all_artist_ids = list(reader)[0]
-        return all_artist_ids
-
 def generate_candidate_list(playlist):
     return playlist
-
-def refresh_access_token():
-    print('Refreshing Access Token')
-    data = {
-        'grant_type': 'client_credentials',
-        'client_id': client_id,
-        'client_secret': client_secret,
-    }
-
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-
-    response = requests.post('https://accounts.spotify.com/api/token', data=data, headers=headers)
-    response_dict = json.loads(response.text)
-    token_type, access_token = response_dict['token_type'], response_dict['access_token']
-    print(f'New Token: {access_token}')
-    return token_type, access_token
-
-def retry_http_call(response, request_url, headers):
-    if response.status_code == 401:
-        token_type, access_token = refresh_access_token()
-        auth_payload = token_type + '  ' + access_token
-        headers = {
-            'Authorization': auth_payload,
-        }
-        response = requests.get(request_url, headers=headers)
-    elif response.status_code == 429:
-        print(response.headers)
-        retry_after_secs = int(response.headers['retry-after']) + 1
-        print('Rate Limit Exceeded, sleeping for ' + str(retry_after_secs) + ' seconds')
-        time.sleep(retry_after_secs)
-        response = requests.get(request_url, headers=headers)
-    elif response.status_code == 504 or response.status_code == 404:
-        print('Response status code is ' + str(response.status_code) + ', sleeping for 15 seconds')
-        print(request_url)
-        time.sleep(15)
-        response = requests.get(request_url, headers=headers)
-    else:
-        print(response.text)
-        print(request_url)
-        print('Response status code not recognized: ' + str(response.status_code))
-
-    return response, headers
 
 def fetch_artist_data(artist_ids):
     # Get access token and build auth headers
     # token_type, access_token = 'Bearer', 'BQA-zdYyP0mjet4LD8A_rPVuVS5xz5Jt1PRmDi7z0AYIFX8QR-G4oaxUFaVosFIc53to7WuXWRRBovyTAZEX-yQm1rmcoid1wJsZWGJfV17Go7V2NiE'
-    token_type, access_token = refresh_access_token()
+    token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
         'Authorization': auth_payload,
     }
 
     # Load already fetched ids
-    fetched_artists = load_ids_from_csv('artists')
+    fetched_artists = utils.load_ids_from_csv('artists')
     
     for artist_id in artist_ids:
         # Don't duplicate effort
@@ -201,7 +89,7 @@ def fetch_artist_data(artist_ids):
         
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/artists/' + artist_id
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
         
         response_dict = json.loads(response.text)
 
@@ -219,7 +107,7 @@ def fetch_artist_data(artist_ids):
         
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/artists/' + artist_id + '/top-tracks?market=ES'
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
         
         response_dict = json.loads(response.text)
         for track in response_dict['tracks']:
@@ -231,7 +119,7 @@ def fetch_artist_data(artist_ids):
         response = requests.get('https://api.spotify.com/v1/artists/' + artist_id + '/related-artists', headers=headers)
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/artists/' + artist_id + '/related-artists'
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
             
         response_dict = json.loads(response.text)
 
@@ -240,24 +128,20 @@ def fetch_artist_data(artist_ids):
 
         # Append data to csv
         print('Writing data for artist: ' + artist_data['artist_name'])
-        append_data_to_csv(artist_data, 'artists')
+        utils.append_data_to_csv(artist_data, 'artists')
 
-def fetch_track_data(track_ids):
+def fetch_track_data(track_ids, prefetched_tracks):
     # Get access token and build auth headers    
-    # token_type, access_token = 'Bearer', 'BQB5iDJ7Ze6_pSDrxaICnVk8wDjTlPKx3MK0QOJILqek15QiQ7a-hod9zMCnvrcEiycJSCjG9aLXXHhi8fERC01G8bLTZd4PihtBAZZjYL7K5U-Sv7w'
-    token_type, access_token = refresh_access_token()
+    # token_type, access_token = 'Bearer', 'BQAp9I3T4m8dbWF-8uGQK5CO26rUkvyhPFJPtL7qndBNb_qqmqUPXB7OrRgzkNCu0ysgmMqQfgqmFOzk10N3yFq1UxOUol__iZEO19kCVs706ZtGl40'
+    token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
         'Authorization': auth_payload,
     }
-
-    # Load already fetched ids
-    fetched_tracks = load_ids_from_csv('tracks')
     
-
     for track_id in track_ids:        
         # Don't duplicate effort
-        if track_id in fetched_tracks or track_id in blacklisted_track_ids:
+        if track_id in prefetched_tracks or track_id in consts.blacklisted_track_ids:
             continue
 
         # Rate limit throttling
@@ -270,7 +154,7 @@ def fetch_track_data(track_ids):
         
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/tracks/' + track_id
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
         
         response_dict = json.loads(response.text)
 
@@ -292,7 +176,7 @@ def fetch_track_data(track_ids):
         
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/audio-features/' + track_id
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
         
         response_dict = json.loads(response.text)
         track_data['track_acousticness'] = response_dict['acousticness']
@@ -312,7 +196,7 @@ def fetch_track_data(track_ids):
         response = requests.get('https://api.spotify.com/v1/audio-analysis/' + track_id, headers=headers)
         while response.status_code != 200:
             request_url = 'https://api.spotify.com/v1/audio-analysis/' + track_id
-            response, headers = retry_http_call(response, request_url, headers)
+            response, headers = utils.retry_http_call(response, request_url, headers)
             
         response_dict = json.loads(response.text)
         track_data['track_num_samples'] = response_dict['track']['num_samples']
@@ -397,4 +281,4 @@ def fetch_track_data(track_ids):
 
         # Append data to csv
         print('Writing data for track: ' + track_data['track_name'])
-        append_data_to_csv(track_data, 'tracks')
+        utils.append_data_to_csv(track_data, 'tracks')

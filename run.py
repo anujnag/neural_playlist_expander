@@ -3,16 +3,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from model import LightNet, DeepNet
-from feature_builder import build_training_feature_tensors, fetch_track_data, read_universe_from_csv
-from utils import get_positive_track, get_negative_track
+import feature_builder
+import utils
 
+from model import LightNet, DeepNet
 
 def train():
     # Load all track ids in the universe
-    all_track_ids = read_universe_from_csv('tracks')
+    all_track_ids = utils.read_universe_from_csv('tracks')
 
-    # net = DeepNet()
+    # Load already fetched ids
+    prefetched_tracks = utils.load_ids_from_csv('tracks')
+
+    net = LightNet()
 
     # criterion = nn.TripletMarginLoss(margin=0.5, p=2)
     # optimizer = optim.Adam(net.parameters(), lr=0.0001)
@@ -25,20 +28,22 @@ def train():
             next(reader, None) # skip header
             for row in reader:
                 playlist_track_ids = row['playlist_tracks'].strip('][').replace("\'", "").split(", ")
-                positive_track_id = get_positive_track(playlist_track_ids)
-                negative_track_id = get_negative_track(playlist_track_ids, all_track_ids)
+                positive_track_id = utils.get_positive_track(playlist_track_ids)
+                negative_track_id = utils.get_negative_track(playlist_track_ids, all_track_ids)
 
                 # Ensure feature data for all track ids is cached locally
-                fetch_track_data(playlist_track_ids + [negative_track_id])
+                feature_builder.fetch_track_data(playlist_track_ids + [negative_track_id], prefetched_tracks)
+
+                prefetched_tracks.update(playlist_track_ids + [negative_track_id])
 
                 # Build feature tensors
-                playlist_features, pos_track_features, neg_track_features = build_training_feature_tensors(
+                playlist_features, pos_track_features, neg_track_features = feature_builder.build_training_features(
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
 
-                # playlist_embedding = net(playlist_features)
-                # positive_embedding = net(positive_track)
-                # negative_embedding = net(negative_track)
+                playlist_embedding = net(playlist_features)
+                pos_track_embedding = net(pos_track_features)
+                neg_track_embedding = net(neg_track_features)
 
                 # score_pos = torch.dot(playlist_embedding, positive_embedding)
                 # score_neg = torch.dot(playlist_embedding, negative_embedding)
@@ -53,9 +58,6 @@ def train():
                 print(f'Epoch {epoch} loss = {epoch_loss}')
 
         csvfile.close()
-        
-
-        
 
 # def evaluate(net, eval_data):
 #     metrics = evaluate_model(net, eval_data)
