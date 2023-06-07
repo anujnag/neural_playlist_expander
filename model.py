@@ -1,9 +1,9 @@
 import torch.nn as nn
 from consts import track_feature_dim
 
-class LightNet(nn.Module):
+class LightTrackEncoder(nn.Module):
     def __init__(self):
-        super(LightNet, self).__init__()
+        super(LightTrackEncoder, self).__init__()
         self.act = nn.ReLU()
         self.fc1 = nn.Linear(track_feature_dim, 10)
         self.fc2 = nn.Linear(10, 10)
@@ -16,9 +16,9 @@ class LightNet(nn.Module):
         x = self.act(self.fc3(x))
         return self.fc4(x)
 
-class DeepNet(nn.Module):
+class DeepTrackEncoder(nn.Module):
     def __init__(self):
-        super(DeepNet, self).__init__()
+        super(DeepTrackEncoder, self).__init__()
         self.act = nn.ReLU()
         self.fc1 = nn.Linear(track_feature_dim, 10)
         self.fc2 = nn.Linear(10, 10)

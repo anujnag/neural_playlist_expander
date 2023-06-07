@@ -79,6 +79,16 @@ track_fieldnames = ['track_id',
                     'track_tatums_duration', 
                     'track_tatums_confidence' ]
 
+album_fieldnames = ['album_id',
+                    'album_name',
+                    'album_type',
+                    'album_total_tracks',
+                    'album_available_markets',
+                    'album_release_year',
+                    'album_genres',
+                    'album_popularity',
+                    'album_artists',
+                    'album_tracks']
 
 blacklisted_track_ids = ['42Vx9J2kK6qutsHyec9xgK', 
                          '6hhz7iJS9m8tfHDQ4MYbTj',

@@ -1,6 +1,5 @@
 import csv
 import math
-import numpy as np
 import random
 import torch
 
@@ -15,7 +14,7 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
         reader = csv.DictReader(csvfile)
         next(reader, None) # skip header
         for row in reader:
-            if row['playlist_id'] not in eval_playlist_ids:
+            if int(row['playlist_id']) not in eval_playlist_ids:
                 continue
 
             suggested_tracks = []
@@ -23,9 +22,9 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
             playlist_track_ids = row['playlist_tracks'].strip('][').replace("\'", "").split(", ")
 
             # mask one-third of playlist
-            num_masked_tracks = len(playlist_track_ids) / 3
+            num_masked_tracks = math.ceil(len(playlist_track_ids) / 3)
             masked_lists.append(playlist_track_ids[-num_masked_tracks:])
-            visible_tracks = playlist_track_ids[:num_masked_tracks]
+            visible_tracks = playlist_track_ids[:-num_masked_tracks]
 
             processed_tracks = feature_builder.fetch_track_data(visible_tracks, processed_tracks)
 
@@ -36,18 +35,28 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
             visible_albums = []
             related_artists = []
             for track in visible_tracks:
+                track_artists = processed_tracks[track]['artist']
                 # there can be multiple artists for same track
-                for artist in processed_tracks[track]['artist']:
+                for artist in track_artists:
                     visible_artists.append(artist)
                 
                 visible_albums.append(processed_tracks[track]['album'])
-                processed_artists = feature_builder.fetch_artist_data(visible_artists)
-                for artist in visible_artists:
-                    related_artists += processed_artists[artist]['related_artists']
+            
+            visible_artists = list(set(visible_artists))
+            processed_artists = feature_builder.fetch_artist_data(visible_artists, processed_artists)
+            
+            for artist in visible_artists:
+                related_artists += processed_artists[artist]['related_artists']
+
+            visible_albums = list(set(visible_albums))
+            related_artists = list(set(related_artists))
+
+            processed_albums = feature_builder.fetch_album_data(visible_albums, processed_albums)
+            processed_artists = feature_builder.fetch_artist_data(related_artists, processed_artists)
 
             # suggest top tracks by all artists in the playlist
             for artist in visible_artists:
-                suggested_tracks += processed_artists[artist]['artist_top_tracks']
+                suggested_tracks += processed_artists[artist]['top_tracks']
 
             # suggest tracks in all the albums in the playlist
             for album in visible_albums:
@@ -55,12 +64,15 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
 
             # suggest top tracks by artists related to artists in the playlist
             for artist in related_artists:
-                suggested_tracks += processed_artists[artist]['artist_top_tracks']
+                suggested_tracks += processed_artists[artist]['top_tracks']
+
+            suggested_tracks = list(set(suggested_tracks))
+            processed_tracks = feature_builder.fetch_track_data(suggested_tracks, processed_tracks)
 
             candidate_lists.append(suggested_tracks)
             visible_lists.append(visible_tracks)    
 
-    return candidate_lists, visible_lists, masked_lists
+    return candidate_lists, visible_lists, masked_lists, processed_tracks, processed_artists, processed_albums
 
 def get_ranked_suggestions(model, visible_lists, candidate_lists):
     ranked_suggestions = []
@@ -137,7 +149,7 @@ def evaluate_metrics(model, processed_tracks, processed_artists, processed_album
     num_eval_playlists = 5
 
     eval_playlist_ids = random.sample(range(0, 999999), num_eval_playlists)
-    candidate_lists, visible_lists, masked_lists = generate_candidate_list(
+    candidate_lists, visible_lists, masked_lists, processed_tracks, processed_artists, processed_albums = generate_candidate_list(
         eval_playlist_ids, processed_tracks, processed_artists, processed_albums
     )
     

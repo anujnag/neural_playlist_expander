@@ -3,24 +3,28 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import consts
 import feature_builder
 import utils
 
-from model import LightNet, DeepNet
+from model import LightTrackEncoder, DeepTrackEncoder
+from evaluator import evaluate_metrics
 
-def train():
+def train_encoder():
     # Load all track ids in the universe
     all_track_ids = utils.read_universe_from_csv('tracks')
 
-    # Load already fetched ids
-    prefetched_tracks = utils.load_ids_from_csv('tracks')
+    # Load already processed data
+    processed_tracks = utils.get_processed_tracks()
+    processed_artists = utils.get_processed_artists()
+    processed_albums = utils.get_processed_albums()
+    
+    model = LightTrackEncoder()
 
-    net = LightNet()
+    criterion = nn.TripletMarginLoss(margin=consts.track_feature_dim)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
-    # criterion = nn.TripletMarginLoss(margin=0.5, p=2)
-    # optimizer = optim.Adam(net.parameters(), lr=0.0001)
-
-    for epoch in range(1):
+    for epoch in range(100):
         epoch_loss = 0      
 
         with open('playlists_data.csv', newline='', encoding='UTF8') as csvfile:
@@ -32,49 +36,48 @@ def train():
                 negative_track_id = utils.get_negative_track(playlist_track_ids, all_track_ids)
 
                 # Ensure feature data for all track ids is cached locally
-                feature_builder.fetch_track_data(playlist_track_ids + [negative_track_id], prefetched_tracks)
-
-                prefetched_tracks.update(playlist_track_ids + [negative_track_id])
+                processed_tracks = feature_builder.fetch_track_data(
+                    playlist_track_ids + [negative_track_id],
+                    processed_tracks
+                )
 
                 # Build feature tensors
                 playlist_features, pos_track_features, neg_track_features = feature_builder.build_training_features(
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
 
-                playlist_embedding = net(playlist_features)
-                pos_track_embedding = net(pos_track_features)
-                neg_track_embedding = net(neg_track_features)
+                playlist_embedding = model(playlist_features)
+                pos_track_embedding = model(pos_track_features)
+                neg_track_embedding = model(neg_track_features)
 
-                # score_pos = torch.dot(playlist_embedding, positive_embedding)
-                # score_neg = torch.dot(playlist_embedding, negative_embedding)
-                # loss = criterion(torch.linalg.norm(playlist_embedding), score_pos, score_neg)
-                # epoch_loss += loss.item()
+                loss = criterion(playlist_embedding, pos_track_embedding, neg_track_embedding)
+                epoch_loss += loss.item()
 
-                # optimizer.zero_grad()
-                # loss.backward()
-                # optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-            if epoch % 100 == 0:
-                print(f'Epoch {epoch} loss = {epoch_loss}')
+                print('Loss for ' + row['playlist_id'] + ' playlist: ' + str(loss.item()))
+
+            print(f'Epoch {epoch} loss = {epoch_loss}')
+
+            # evaluate model
+            model.eval()
+
+            with torch.no_grad():
+                mean_rprecision, mean_ndcg, mean_rec_song_clicks, processed_tracks, processed_artists, processed_albums = evaluate_metrics(
+                      model, processed_tracks, processed_artists, processed_albums
+                )
+
+                print(f'Evaluation Stats: Mean R-Precision: {mean_rprecision}, Mean NDCG: {mean_ndcg}, Mean Rec Song Clicks: {mean_rec_song_clicks}')
+            
+            model.train()
 
         csvfile.close()
 
-# def evaluate(net, eval_data):
-#     metrics = evaluate_model(net, eval_data)
-#     return metrics 
-
 def main():
-    print('Running Model...')
-
-    # data_address = input("Enter the path of the data directory (leave blank if unsure): ")
-    # if data_address is None:
-    #     data_address = '../spotify_million_playlist_dataset/data/'
-
-    train()
-    # all_tracks = read_universe_data_from_csv('tracks')
-    # model = train(data_address, all_tracks)
-    # evaluate(model, data_address)
-
+    print('Training Encoder...')
+    train_encoder()
     print('Finished Running Model.')
 
 if __name__ == '__main__':
