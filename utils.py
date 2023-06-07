@@ -71,6 +71,7 @@ def load_ids_from_csv(type):
 
     return id_set        
 
+# Fetch all preprocessed track data
 def get_processed_tracks():
     track_dict = {}
 
@@ -87,6 +88,7 @@ def get_processed_tracks():
 
     return track_dict
 
+# Fetch all preprocessed artist data
 def get_processed_artists():
     artist_dict = {}
 
@@ -103,6 +105,7 @@ def get_processed_artists():
 
     return artist_dict
 
+# Fetch all preprocessed album data
 def get_processed_albums():
     album_dict = {}
 
@@ -118,6 +121,7 @@ def get_processed_albums():
 
     return album_dict    
 
+# Load all possible ids in the universe for tracks/albums/artists 
 def read_universe_from_csv(type):
     if type == 'artists':
         csvfile = 'all_artists.csv'
@@ -128,9 +132,10 @@ def read_universe_from_csv(type):
 
     with open(csvfile, mode='r', encoding='UTF8') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
-        all_artist_ids = list(reader)[0]
-        return all_artist_ids
+        all_ids = list(reader)[0]
+        return all_ids
 
+# Refresh API access token on expiry
 def refresh_access_token():
     print('Refreshing Access Token')
     data = {
@@ -150,20 +155,20 @@ def refresh_access_token():
     return token_type, access_token
 
 def retry_http_call(response, request_url, headers):
-    if response.status_code == 401:
+    if response.status_code == 401: # Access token expired
         token_type, access_token = refresh_access_token()
         auth_payload = token_type + '  ' + access_token
         headers = {
             'Authorization': auth_payload,
         }
         response = requests.get(request_url, headers=headers)
-    elif response.status_code == 429:
+    elif response.status_code == 429: # Rate limit exceeded
         print(response.headers)
         retry_after_secs = int(response.headers['retry-after']) + 1
         print('Rate Limit Exceeded, sleeping for ' + str(retry_after_secs) + ' seconds')
         time.sleep(retry_after_secs)
         response = requests.get(request_url, headers=headers)
-    elif response.status_code == 504 or response.status_code == 404:
+    elif response.status_code == 504 or response.status_code == 404: # Bad request response
         print('Response status code is ' + str(response.status_code) + ', sleeping for 15 seconds')
         print(request_url)
         time.sleep(15)
@@ -175,11 +180,13 @@ def retry_http_call(response, request_url, headers):
 
     return response, headers
 
+# Fetch a track id present in a given playlist
 def get_positive_track(playlist_track_ids):
     idx = random.randint(0, len(playlist_track_ids) - 1)
     track = playlist_track_ids[idx]
     return track
 
+# Fetch a track id not present in a given playlist
 def get_negative_track(playlist_track_ids, all_track_ids):
     idx = random.randint(0, len(all_track_ids) - 1)    
     track = all_track_ids[idx]
@@ -188,10 +195,6 @@ def get_negative_track(playlist_track_ids, all_track_ids):
         track = all_track_ids[idx]
 
     return track
-
-def generate_candidate_list(playlist):
-    # code added in a private file to hide API keys and access tokens
-    return generate_candidate_list(playlist)
 
 def build_track_feature_dict():
     track_feature_dict = {}

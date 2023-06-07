@@ -20,7 +20,6 @@ def train_encoder():
     processed_albums = utils.get_processed_albums()
     
     model = LightTrackEncoder()
-
     criterion = nn.TripletMarginLoss(margin=consts.track_feature_dim)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
@@ -31,6 +30,7 @@ def train_encoder():
             reader = csv.DictReader(csvfile)
             next(reader, None) # skip header
             for row in reader:
+                # Load IDs for training
                 playlist_track_ids = row['playlist_tracks'].strip('][').replace("\'", "").split(", ")
                 positive_track_id = utils.get_positive_track(playlist_track_ids)
                 negative_track_id = utils.get_negative_track(playlist_track_ids, all_track_ids)
@@ -46,6 +46,7 @@ def train_encoder():
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
 
+                # Compute encodings
                 playlist_embedding = model(playlist_features)
                 pos_track_embedding = model(pos_track_features)
                 neg_track_embedding = model(neg_track_features)

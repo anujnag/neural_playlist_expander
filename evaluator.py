@@ -1,3 +1,7 @@
+#
+# Evaluation metrics used as per the Spotify Million Dataset Challenge:
+# https://www.aicrowd.com/challenges/spotify-million-playlist-dataset-challenge
+#
 import csv
 import math
 import random

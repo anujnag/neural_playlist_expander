@@ -90,11 +90,13 @@ album_fieldnames = ['album_id',
                     'album_artists',
                     'album_tracks']
 
+# Spotify API calls didn't work for these track IDs
 blacklisted_track_ids = ['42Vx9J2kK6qutsHyec9xgK', 
                          '6hhz7iJS9m8tfHDQ4MYbTj',
                          '4WHjf37BBXUo3WYBmJPdoU',
                          '6uQKuonTU8VKBz5SHZuQXD',
-                         '62zfuyWkzuTZ2FE1MKroz7']
+                         '62zfuyWkzuTZ2FE1MKroz7',
+                         '6MFQeWtk7kxWGydnJB2y36']
 
 track_feature_map = {
     0: 'track_popularity',
