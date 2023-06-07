@@ -3,7 +3,7 @@
 #
 
 artist_feature_dim = 10
-track_feature_dim = 60
+track_feature_dim = 6
 
 playlist_fieldnames = ['playlist_id',
                        'playlist_tracks']
@@ -83,5 +83,14 @@ track_fieldnames = ['track_id',
 blacklisted_track_ids = ['42Vx9J2kK6qutsHyec9xgK', 
                          '6hhz7iJS9m8tfHDQ4MYbTj',
                          '4WHjf37BBXUo3WYBmJPdoU',
-                         '6uQKuonTU8VKBz5SHZuQXD']
-                         
+                         '6uQKuonTU8VKBz5SHZuQXD',
+                         '62zfuyWkzuTZ2FE1MKroz7']
+
+track_feature_map = {
+    0: 'track_popularity',
+    1: 'track_release_year',
+    2: 'track_duration',
+    3: 'track_acousticness',
+    4: 'track_danceability',
+    5: 'track_energy'
+}                        

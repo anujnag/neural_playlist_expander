@@ -9,16 +9,32 @@ from consts import *
 csv.field_size_limit(sys.maxsize)
 
 # ID and Secret masked for security reasons
-# client_id = 'CLIENT-ID'
-# client_secret = 'CLIENT-SECRET'
+client_id = 'CLIENT-ID'
+client_secret = 'CLIENT-SECRET'
 
-def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
-    playlist_features = torch.zeros(track_feature_dim)
-    pos_track_features = torch.zeros(track_feature_dim)
-    neg_track_features = torch.zeros(track_feature_dim)
+def build_track_feature_tensor(track_features):
+    track_tensor = torch.zeros(track_feature_dim)
     
+    for idx in range(track_feature_dim):
+        track_tensor[idx] = float(track_features[track_feature_map[idx]])
+
+    return track_tensor
+
+def build_playlist_feature_tensor(playlist_track_features):
+    playlist_tensor = torch.zeros(track_feature_dim)
+    num_tracks = len(playlist_track_features)
+
+    for track_features in playlist_track_features:
+        track_feature_tensor = build_track_feature_tensor(track_features)
+        playlist_tensor += track_feature_tensor / num_tracks
+
+    return playlist_tensor
+
+def build_training_feature_tensors(playlist_track_ids, positive_track_id, negative_track_id):
     track_count = 0
+    # All playlist tracks and one negative track
     track_limit = len(playlist_track_ids) + 1
+    playlist_features = []
     
     with open('tracks_data.csv', newline='', encoding='UTF8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -27,22 +43,26 @@ def build_feature_tensors(playlist_track_ids, positive_track_id, negative_track_
                 break
 
             # check if relevant entry            
-            if row['track_id'] not in playlist_track_ids or row['track_id'] != negative_track_id:
+            if row['track_id'] not in playlist_track_ids + [negative_track_id]:
                 continue
 
             if row['track_id'] in playlist_track_ids:
+                playlist_features.append(row)
+                # check if this is also our positive track
                 if row['track_id'] == positive_track_id:
-                    pass
+                    pos_track_tensor = build_track_feature_tensor(row)
                 
-
+            # check if this is our negative track
             if row['track_id'] == negative_track_id:
-                pass
+                neg_track_tensor = build_track_feature_tensor(row)
 
             track_count += 1    
 
         csvfile.close()        
 
-    return playlist_features, pos_track_features, neg_track_features
+        playlist_tensor = build_playlist_feature_tensor(playlist_features)
+    
+    return playlist_tensor, pos_track_tensor, neg_track_tensor
 
 def write_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'
@@ -224,7 +244,7 @@ def fetch_artist_data(artist_ids):
 
 def fetch_track_data(track_ids):
     # Get access token and build auth headers    
-    # token_type, access_token = 'Bearer', 'BQCnHwbygCJxTPHUWjv55RMCtTn7c4RAOAzZWM16Q14pquuO94yBufL359Zl6mzhIxMzhmTJJYgzGjLF6GowJVcMP5XFpQVPmdsFOj6Hqj-OSx-cTv0'
+    # token_type, access_token = 'Bearer', 'BQB5iDJ7Ze6_pSDrxaICnVk8wDjTlPKx3MK0QOJILqek15QiQ7a-hod9zMCnvrcEiycJSCjG9aLXXHhi8fERC01G8bLTZd4PihtBAZZjYL7K5U-Sv7w'
     token_type, access_token = refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
