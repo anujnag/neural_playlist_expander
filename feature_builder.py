@@ -1,3 +1,4 @@
+from concurrent.futures import process
 import csv
 import json
 import requests
@@ -27,9 +28,14 @@ def build_playlist_feature_tensor(playlist_track_features):
 
 def build_training_features(playlist_track_ids, positive_track_id, negative_track_id):
     track_count = 0
-    # All playlist tracks and one negative track
-    track_limit = len(playlist_track_ids) + 1
+    track_limit = len(playlist_track_ids)
+
+    if negative_track_id != None:
+        track_limit += 1
+
     playlist_features = []
+    pos_track_tensor = None
+    neg_track_tensor = None
     
     with open('tracks_data.csv', newline='', encoding='UTF8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -44,11 +50,11 @@ def build_training_features(playlist_track_ids, positive_track_id, negative_trac
             if row['track_id'] in playlist_track_ids:
                 playlist_features.append(row)
                 # check if this is also our positive track
-                if row['track_id'] == positive_track_id:
+                if positive_track_id != None and row['track_id'] == positive_track_id:
                     pos_track_tensor = build_track_feature_tensor(row)
                 
             # check if this is our negative track
-            if row['track_id'] == negative_track_id:
+            if negative_track_id != None and row['track_id'] == negative_track_id:
                 neg_track_tensor = build_track_feature_tensor(row)
 
             track_count += 1    
@@ -59,24 +65,17 @@ def build_training_features(playlist_track_ids, positive_track_id, negative_trac
     
     return playlist_tensor, pos_track_tensor, neg_track_tensor
 
-def generate_candidate_list(playlist):
-    return playlist
-
-def fetch_artist_data(artist_ids):
+def fetch_artist_data(artist_ids, processed_artists):
     # Get access token and build auth headers
-    # token_type, access_token = 'Bearer', 'BQA-zdYyP0mjet4LD8A_rPVuVS5xz5Jt1PRmDi7z0AYIFX8QR-G4oaxUFaVosFIc53to7WuXWRRBovyTAZEX-yQm1rmcoid1wJsZWGJfV17Go7V2NiE'
     token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
         'Authorization': auth_payload,
     }
-
-    # Load already fetched ids
-    fetched_artists = utils.load_ids_from_csv('artists')
     
     for artist_id in artist_ids:
         # Don't duplicate effort
-        if artist_id in fetched_artists:
+        if artist_id in processed_artists.keys():
             continue
 
         # Rate limit throttling
@@ -129,10 +128,15 @@ def fetch_artist_data(artist_ids):
         # Append data to csv
         print('Writing data for artist: ' + artist_data['artist_name'])
         utils.append_data_to_csv(artist_data, 'artists')
+        processed_artists[artist_id] = {
+            'top_tracks': artist_data['artist_top_tracks'],
+            'related_artists': artist_data['related_artists']
+        }
 
-def fetch_track_data(track_ids, prefetched_tracks):
-    # Get access token and build auth headers    
-    # token_type, access_token = 'Bearer', 'BQAp9I3T4m8dbWF-8uGQK5CO26rUkvyhPFJPtL7qndBNb_qqmqUPXB7OrRgzkNCu0ysgmMqQfgqmFOzk10N3yFq1UxOUol__iZEO19kCVs706ZtGl40'
+    return processed_artists
+
+def fetch_track_data(track_ids, processed_tracks):
+    # Get access token and build auth headers
     token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
     headers = {
@@ -141,13 +145,13 @@ def fetch_track_data(track_ids, prefetched_tracks):
     
     for track_id in track_ids:        
         # Don't duplicate effort
-        if track_id in prefetched_tracks or track_id in consts.blacklisted_track_ids:
+        if track_id in processed_tracks.keys() or track_id in consts.blacklisted_track_ids:
             continue
 
         # Rate limit throttling
         time.sleep(2)
         
-        # Populate artist data
+        # Populate track data
         track_data = {}
         
         response = requests.get('https://api.spotify.com/v1/tracks/' + track_id, headers=headers)
@@ -282,3 +286,62 @@ def fetch_track_data(track_ids, prefetched_tracks):
         # Append data to csv
         print('Writing data for track: ' + track_data['track_name'])
         utils.append_data_to_csv(track_data, 'tracks')
+        processed_tracks[track_id] = {
+            'artist': track_data['track_artists'],
+            'album': track_data['track_album']
+        }
+
+    return processed_tracks
+
+def fetch_album_data(album_ids, processed_albums):
+    # Get access token and build auth headers
+    token_type, access_token = utils.refresh_access_token()
+    auth_payload = token_type + '  ' + access_token
+    headers = {
+        'Authorization': auth_payload,
+    }
+    
+    for album_id in album_ids:        
+        # Don't duplicate effort
+        if album_id in processed_albums.keys():
+            continue
+
+        # Rate limit throttling
+        time.sleep(2)
+        
+        # Populate album data
+        album_data = {}
+        
+        response = requests.get('https://api.spotify.com/v1/albums/' + album_id, headers=headers)
+        
+        while response.status_code != 200:
+            request_url = 'https://api.spotify.com/v1/albums/' + album_id
+            response, headers = utils.retry_http_call(response, request_url, headers)
+        
+        response_dict = json.loads(response.text)
+
+        album_data['album_id'] = album_id
+        album_data['album_name'] = response_dict['name']
+        album_data['album_type'] = response_dict['album_type']
+        album_data['album_total_tracks'] = response_dict['total_tracks']
+        album_data['album_available_markets'] = response_dict['available_markets']
+        album_data['album_release_year'] = response_dict['release_date'].split('-')[0]
+        album_data['album_genres'] = response_dict['genres']
+        album_data['album_popularity'] = response_dict['popularity']
+        
+        album_data['album_artists'] = []
+        for artist in response_dict['artists']:
+            album_data['album_artists'].append(artist['id'])
+
+        album_data['album_tracks'] = []
+        for track in response_dict['tracks']['items']:
+            album_data['album_tracks'].append(track['id'])
+
+        # Append data to csv
+        print('Writing data for album: ' + album_data['album_name'])
+        utils.append_data_to_csv(album_data, 'albums')
+        processed_albums[album_id] = {
+            'tracks': album_data['album_tracks']
+        }
+
+    return processed_albums

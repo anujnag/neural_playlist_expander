@@ -1,4 +1,5 @@
 import csv
+import json
 import random
 import requests
 import sys
@@ -19,6 +20,8 @@ def write_data_to_csv(data_dict, type):
         fieldnames = consts.artist_fieldnames
     elif type == 'tracks':
         fieldnames = consts.track_fieldnames
+    elif type == 'albums':
+        fieldnames = consts.album_fieldnames
     elif type == 'playlists':
         fieldnames = consts.playlist_fieldnames        
     
@@ -35,6 +38,8 @@ def append_data_to_csv(data_dict, type):
         fieldnames = consts.artist_fieldnames
     elif type == 'tracks':
         fieldnames = consts.track_fieldnames
+    elif type == 'albums':
+        fieldnames = consts.album_fieldnames    
     elif type == 'playlists':
         fieldnames = consts.playlist_fieldnames         
     
@@ -51,6 +56,8 @@ def load_ids_from_csv(type):
         fieldnames = consts.artist_fieldnames
     elif type == 'tracks':
         fieldnames = consts.track_fieldnames
+    elif type == 'albums':
+        fieldnames = consts.album_fieldnames    
     elif type == 'playlists':
         fieldnames = consts.playlist_fieldnames        
 
@@ -60,7 +67,56 @@ def load_ids_from_csv(type):
         for row in reader:
             id_set.add(row[fieldnames[0]])
 
+        csvfile.close()
+
     return id_set        
+
+def get_processed_tracks():
+    track_dict = {}
+
+    with open('tracks_data.csv', newline='', encoding='UTF8') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        for row in reader:
+            track_dict[row['track_id']] = {
+                'artist': row['track_artists'].strip('][').replace("\'", "").split(", "),
+                'album': row['track_album']
+            }
+
+        csvfile.close()    
+
+    return track_dict
+
+def get_processed_artists():
+    artist_dict = {}
+
+    with open('artists_data.csv', newline='', encoding='UTF8') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        for row in reader:
+            artist_dict[row['artist_id']] = {
+                'top_tracks': row['artist_top_tracks'].strip('][').replace("\'", "").split(", "),
+                'related_artists': row['related_artists'].strip('][').replace("\'", "").split(", ")
+            }
+
+        csvfile.close()    
+
+    return artist_dict
+
+def get_processed_albums():
+    album_dict = {}
+
+    with open('albums_data.csv', newline='', encoding='UTF8') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        for row in reader:
+            album_dict[row['album_id']] = {
+                'tracks': row['album_tracks'].strip('][').replace("\'", "").split(", ")
+            }
+
+        csvfile.close()
+
+    return album_dict    
 
 def read_universe_from_csv(type):
     if type == 'artists':
