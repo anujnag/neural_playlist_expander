@@ -1,75 +1,151 @@
+import csv
 import math
 import numpy as np
+import random
+import torch
 
-def get_class(class_divpnt, idx):
-    for c in class_divpnt:
-        if idx <= c:
-            return class_divpnt.index(c)
-    return len(class_divpnt)
+import feature_builder
 
+def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artists, processed_albums):
+    candidate_lists = []
+    visible_lists = []
+    masked_lists = []
 
-def get_class_dist(cls_list, num_cls):
-    cls_dist = [1e-9] * num_cls
-    for i in cls_list:
-        if i != -1:
-            cls_dist[i]+=1
-    return cls_dist
+    with open('playlists_data.csv', newline='', encoding='UTF8') as csvfile:
+        reader = csv.DictReader(csvfile)
+        next(reader, None) # skip header
+        for row in reader:
+            if row['playlist_id'] not in eval_playlist_ids:
+                continue
 
+            suggested_tracks = []
+            
+            playlist_track_ids = row['playlist_tracks'].strip('][').replace("\'", "").split(", ")
 
-def get_r_precision(answer, cand, answer_cls, class_divpnt):
-    num_cls = len(class_divpnt) + 1
-    hr_by_cls = [0] * num_cls
-    cls_dist = get_class_dist(answer_cls, num_cls)
+            # mask one-third of playlist
+            num_masked_tracks = len(playlist_track_ids) / 3
+            masked_lists.append(playlist_track_ids[-num_masked_tracks:])
+            visible_tracks = playlist_track_ids[:num_masked_tracks]
 
-    set_answer = set(answer)
-    r = len(set_answer&set(cand[:len(answer)])) / len(answer)
-    return r
+            processed_tracks = feature_builder.fetch_track_data(visible_tracks, processed_tracks)
 
-def get_ndcg(answer, cand):
-    cand_len = len(cand) 
-    idcg=1
-    idcg_idx=2
-    dcg=0
-    if cand[0] in answer:  dcg=1
+            # (1) Find  artists in the playlist
+            # (2) Find the artists related to the most appearing artists
+            # (3) Find most appearing albums in the playlist
+            visible_artists = []
+            visible_albums = []
+            related_artists = []
+            for track in visible_tracks:
+                # there can be multiple artists for same track
+                for artist in processed_tracks[track]['artist']:
+                    visible_artists.append(artist)
+                
+                visible_albums.append(processed_tracks[track]['album'])
+                processed_artists = feature_builder.fetch_artist_data(visible_artists)
+                for artist in visible_artists:
+                    related_artists += processed_artists[artist]['related_artists']
+
+            # suggest top tracks by all artists in the playlist
+            for artist in visible_artists:
+                suggested_tracks += processed_artists[artist]['artist_top_tracks']
+
+            # suggest tracks in all the albums in the playlist
+            for album in visible_albums:
+                suggested_tracks += processed_albums[album]['tracks']
+
+            # suggest top tracks by artists related to artists in the playlist
+            for artist in related_artists:
+                suggested_tracks += processed_artists[artist]['artist_top_tracks']
+
+            candidate_lists.append(suggested_tracks)
+            visible_lists.append(visible_tracks)    
+
+    return candidate_lists, visible_lists, masked_lists
+
+def get_ranked_suggestions(model, visible_lists, candidate_lists):
+    ranked_suggestions = []
+
+    for visible_playlist, candidate_tracks in zip(visible_lists, candidate_lists):
+        suggestion_scores = []
+        visible_playlist_features, _, _ = feature_builder.build_training_features(visible_playlist, None, None)
+        playlist_embedding = model(visible_playlist_features)
+        for track in candidate_tracks:
+            _, track_features, _ = feature_builder.build_training_features([], track, None)
+            track_embedding = model(track_features)
+            suggestion_scores.append(-torch.linalg_norm(playlist_embedding - track_embedding))
+
+        ranked_suggestions.append(sorted(suggestion_scores))
+
+    return ranked_suggestions    
+
+def calculate_rprecision(ranked_suggestions, masked_lists, num_eval_playlists):
+    mean_rprecision = 0.0
     
-    for i in range(1,cand_len):
-        if cand[i] in answer: 
-            dcg += (1/math.log(i+1,2))
-            idcg += (1/math.log(idcg_idx,2))
-            idcg_idx+=1
+    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
+        count = 0
+        for suggestion in suggestions[:len(masked_tracks)]:
+            if suggestion in masked_tracks:
+                count += 1
+
+        rprecision = count / len(masked_tracks)
+        mean_rprecision += rprecision / num_eval_playlists
     
-    return dcg/idcg
+    return mean_rprecision    
 
-def get_rsc(answer, cand):
-    cand_len = len(cand)
-    for i in range(cand_len):
-        if cand[i] in answer:
-            return i//10
-    return 51
+def calculate_ndcg(ranked_suggestions, masked_lists, num_eval_playlists):
+    mean_ndcg = 0.0
 
-def get_metrics(answer,cand, answer_cls, num_cls):
-    r_precision, hr_by_cls, cand_cls_dist = get_r_precision(answer,cand, answer_cls, num_cls)
-    # ndcg = get_ndcg(answer,cand)
-    # rsc = get_rsc(answer,cand)
+    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
+        count = 0
+        for suggestion in suggestions:
+            if suggestion in masked_tracks:
+                count += 1
+
+        idcg = 1.0
+        for i in range(2, count+1):
+            idcg += 1 / math.log(i, 2)        
     
-    return r_precision, hr_by_cls, cand_cls_dist
+        dcg = 0.0
+        if suggestions[0] in masked_tracks:
+            dcg += 1.0 
 
-def single_eval(scores, seed, answer, answer_cls, num_cls):
-    cand = np.argsort(-1*scores)
-    cand = cand.tolist()
-    #print("sort:",np.sort(-1*scores)[:10])
-    #print("cand:",cand[:10])
-    for i in seed:
-        try:
-            cand.remove(i)
-        except:
-            pass
-    cand = cand[:500]
-    rprecision, hr_by_cls, cand_cls_dist = get_metrics(answer,cand, answer_cls, num_cls)
-    return rprecision, hr_by_cls, cand_cls_dist
+        for i in range(2, len(suggestions) + 1):
+            if suggestions[i - 1] in masked_tracks:
+                dcg += 1.0 / math.log(i, 2)
 
-def evaluate_model(net, eval_dataset):
-    for playlist in eval_dataset:
-        metrics += get_metrics() / len(eval_dataset)
+        ndcg = dcg / idcg
+        mean_ndcg += ndcg / num_eval_playlists
+
+    return mean_ndcg
+
+def calculate_rec_song_clicks(ranked_suggestions, masked_lists, num_eval_playlists):
+    mean_rec_song_clicks = 0.0
     
-    return metrics
+    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
+        rec_song_clicks = 51
+
+        for i in range(len(suggestions)):
+            if suggestions[i] in masked_tracks:
+                rec_song_clicks = math.floor(i / 10)
+                break
+
+        mean_rec_song_clicks += rec_song_clicks / num_eval_playlists
+
+    return mean_rec_song_clicks
+
+def evaluate_metrics(model, processed_tracks, processed_artists, processed_albums):
+    num_eval_playlists = 5
+
+    eval_playlist_ids = random.sample(range(0, 999999), num_eval_playlists)
+    candidate_lists, visible_lists, masked_lists = generate_candidate_list(
+        eval_playlist_ids, processed_tracks, processed_artists, processed_albums
+    )
+    
+    ranked_suggestions = get_ranked_suggestions(model, visible_lists, candidate_lists)
+
+    # calculate metrics
+    mean_rprecision = calculate_rprecision(ranked_suggestions, masked_lists, num_eval_playlists)
+    mean_ndcg = calculate_ndcg(ranked_suggestions, masked_lists, num_eval_playlists)
+    mean_rec_song_clicks = calculate_rec_song_clicks(ranked_suggestions, masked_lists, num_eval_playlists)
+    
+    return mean_rprecision, mean_ndcg, mean_rec_song_clicks, processed_tracks, processed_artists, processed_albums
