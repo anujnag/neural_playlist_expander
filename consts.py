@@ -104,5 +104,16 @@ track_feature_map = {
     2: 'track_duration',
     3: 'track_acousticness',
     4: 'track_danceability',
-    5: 'track_energy'
+    5: 'track_energy',
+    6: 'track_instrumentalness',
+    7: 'track_key',
+    8: 'track_liveness',
+    9: 'track_loudness',
+    10: 'track_mode',
+    11: 'track_speechiness',
+    12: 'track_tempo',
+    13: 'track_time_signature',
+    14: 'track_valence',
+    15: 'track_end_of_fade_in',
+    16: 'track_start_of_fade_out'
 }                        
