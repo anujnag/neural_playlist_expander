@@ -20,7 +20,7 @@ def train_encoder():
     processed_albums = utils.get_processed_albums()
     
     model = LightTrackEncoder()
-    criterion = nn.TripletMarginLoss(margin=consts.track_feature_dim)
+    criterion = nn.TripletMarginLoss(margin=50)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     for epoch in range(100):
@@ -45,6 +45,11 @@ def train_encoder():
                 playlist_features, pos_track_features, neg_track_features = feature_builder.build_training_features(
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
+
+                # Normalize input features
+                playlist_features = nn.functional.normalize(playlist_features)
+                pos_track_features = nn.functional.normalize(pos_track_features)
+                neg_track_features = nn.functional.normalize(neg_track_features)
 
                 # Compute encodings
                 playlist_embedding = model(playlist_features)
