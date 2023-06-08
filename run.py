@@ -47,9 +47,9 @@ def train_encoder():
                 )
 
                 # Normalize input features
-                playlist_features = nn.functional.normalize(playlist_features)
-                pos_track_features = nn.functional.normalize(pos_track_features)
-                neg_track_features = nn.functional.normalize(neg_track_features)
+                playlist_features = nn.functional.normalize(playlist_features, dim=0)
+                pos_track_features = nn.functional.normalize(pos_track_features, dim=0)
+                neg_track_features = nn.functional.normalize(neg_track_features, dim=0)
 
                 # Compute encodings
                 playlist_embedding = model(playlist_features)
