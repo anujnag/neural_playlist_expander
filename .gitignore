@@ -1,6 +1,3 @@
 web_api.py
-artists_data.csv
-tracks_data.csv
-playlists_data.csv
-albums_data.csv
+*.csv
 __pycache__/
