@@ -2,6 +2,8 @@
 # Maintaining all constants here
 #
 
+DATA_DIR = "spotify_million_playlist_dataset/data"
+
 artist_feature_dim = 10
 track_feature_dim = 6
 

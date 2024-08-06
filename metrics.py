@@ -1,13 +1,12 @@
-#
-# Evaluation metrics used as per the Spotify Million Dataset Challenge:
-# https://www.aicrowd.com/challenges/spotify-million-playlist-dataset-challenge
-#
 import csv
 import math
 import random
 import torch
+from tqdm import tqdm
 
 import feature_builder
+
+from utils import get_tracks_from_playlist_id
 
 def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artists, processed_albums):
     candidate_lists = []
@@ -94,74 +93,71 @@ def get_ranked_suggestions(model, visible_lists, candidate_lists):
 
     return ranked_suggestions    
 
-def calculate_rprecision(ranked_suggestions, masked_lists, num_eval_playlists):
-    mean_rprecision = 0.0
+def calculate_rprecision(ranked_suggestions, masked_playlist):
+    intersection = 0
+
+    # Note: ground truth mask contains duplicates - can't use set intersection
+    for index, suggestion in enumerate(ranked_suggestions):
+        if index >= len(masked_playlist):
+            break
+        if suggestion in masked_playlist:
+            intersection += 1
+
+    rprecision = intersection / len(masked_playlist)
+    return rprecision
+
+def calculate_ndcg(ranked_suggestions, masked_playlist):
+    dcg = 0.0
+    for index, suggestion in enumerate(ranked_suggestions):
+        if suggestion in masked_playlist:
+            dcg += 1.0 / math.log(index + 2, 2)
+
+    idcg = 0.0
+    for index in range(len(masked_playlist)):
+        idcg += 1.0 / math.log(index + 2, 2)
+
+    ndcg = dcg / idcg
+    return ndcg
+
+def calculate_rec_song_clicks(ranked_suggestions, masked_playlist):
+    rec_song_clicks = 51
+
+    for index, suggestion in enumerate(ranked_suggestions):
+        if suggestion in masked_playlist:
+            rec_song_clicks = math.floor(index / 10)
+            break
     
-    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
-        count = 0
-        for suggestion in suggestions[:len(masked_tracks)]:
-            if suggestion in masked_tracks:
-                count += 1
+    return rec_song_clicks
 
-        rprecision = count / len(masked_tracks)
-        mean_rprecision += rprecision / num_eval_playlists
+def evaluate_metrics(val_playlist_ids):
+    all_rprecision = []
+    all_ndcg = []
+    all_rec_song_clicks = []
     
-    return mean_rprecision    
-
-def calculate_ndcg(ranked_suggestions, masked_lists, num_eval_playlists):
-    mean_ndcg = 0.0
-
-    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
-        count = 0
-        for suggestion in suggestions:
-            if suggestion in masked_tracks:
-                count += 1
-
-        idcg = 1.0
-        for i in range(2, count+1):
-            idcg += 1 / math.log(i, 2)        
+    for playlist_id in tqdm(val_playlist_ids):
+        track_ids = get_tracks_from_playlist_id(playlist_id)
+        num_unmasked = random.randint(0, len(track_ids) - 1)
+        unmasked_playlist, masked_playlist = track_ids[:num_unmasked], track_ids[num_unmasked:]
+        
+        # Placeholder for generating ranked candidate list
+        # candidate_lists, visible_lists, masked_lists, processed_tracks, processed_artists, processed_albums = generate_candidate_list(
+        #     eval_playlist_ids, processed_tracks, processed_artists, processed_albums
+        # )
     
-        dcg = 0.0
-        if suggestions[0] in masked_tracks:
-            dcg += 1.0 
+        # ranked_suggestions = get_ranked_suggestions(model, visible_lists, candidate_lists)
+        ranked_suggestions = masked_playlist
 
-        for i in range(2, len(suggestions) + 1):
-            if suggestions[i - 1] in masked_tracks:
-                dcg += 1.0 / math.log(i, 2)
+        # calculate metrics
+        rprecision = calculate_rprecision(ranked_suggestions, masked_playlist)
+        ndcg = calculate_ndcg(ranked_suggestions, masked_playlist)
+        rec_song_clicks = calculate_rec_song_clicks(ranked_suggestions, masked_playlist)
 
-        ndcg = dcg / idcg
-        mean_ndcg += ndcg / num_eval_playlists
+        all_rprecision.append(rprecision)
+        all_ndcg.append(ndcg)
+        all_rec_song_clicks.append(rec_song_clicks)
 
-    return mean_ndcg
+    mean_rprecision = sum(all_rprecision) / len(all_rprecision)
+    mean_ndcg = sum(all_ndcg) / len(all_ndcg)
+    mean_rec_song_clicks = sum(all_rec_song_clicks) / len(all_rec_song_clicks)
 
-def calculate_rec_song_clicks(ranked_suggestions, masked_lists, num_eval_playlists):
-    mean_rec_song_clicks = 0.0
-    
-    for suggestions, masked_tracks in zip(ranked_suggestions, masked_lists):
-        rec_song_clicks = 51
-
-        for i in range(len(suggestions)):
-            if suggestions[i] in masked_tracks:
-                rec_song_clicks = math.floor(i / 10)
-                break
-
-        mean_rec_song_clicks += rec_song_clicks / num_eval_playlists
-
-    return mean_rec_song_clicks
-
-def evaluate_metrics(model, processed_tracks, processed_artists, processed_albums):
-    num_eval_playlists = 5
-
-    eval_playlist_ids = random.sample(range(0, 999999), num_eval_playlists)
-    candidate_lists, visible_lists, masked_lists, processed_tracks, processed_artists, processed_albums = generate_candidate_list(
-        eval_playlist_ids, processed_tracks, processed_artists, processed_albums
-    )
-    
-    ranked_suggestions = get_ranked_suggestions(model, visible_lists, candidate_lists)
-
-    # calculate metrics
-    mean_rprecision = calculate_rprecision(ranked_suggestions, masked_lists, num_eval_playlists)
-    mean_ndcg = calculate_ndcg(ranked_suggestions, masked_lists, num_eval_playlists)
-    mean_rec_song_clicks = calculate_rec_song_clicks(ranked_suggestions, masked_lists, num_eval_playlists)
-    
-    return mean_rprecision, mean_ndcg, mean_rec_song_clicks, processed_tracks, processed_artists, processed_albums
+    return mean_rprecision, mean_ndcg, mean_rec_song_clicks

@@ -5,7 +5,7 @@ import requests
 import sys
 import time
 
-import consts
+from consts import DATA_DIR, artist_fieldnames, track_fieldnames, album_fieldnames, playlist_fieldnames
 
 csv.field_size_limit(sys.maxsize)
 
@@ -17,13 +17,13 @@ def write_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'
     
     if type == 'artists':
-        fieldnames = consts.artist_fieldnames
+        fieldnames = artist_fieldnames
     elif type == 'tracks':
-        fieldnames = consts.track_fieldnames
+        fieldnames = track_fieldnames
     elif type == 'albums':
-        fieldnames = consts.album_fieldnames
+        fieldnames = album_fieldnames
     elif type == 'playlists':
-        fieldnames = consts.playlist_fieldnames        
+        fieldnames = playlist_fieldnames        
     
     with open(csv_filename, 'w', newline='', encoding='UTF8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -35,13 +35,13 @@ def append_data_to_csv(data_dict, type):
     csv_filename = type + '_data.csv'
     
     if type == 'artists':
-        fieldnames = consts.artist_fieldnames
+        fieldnames = artist_fieldnames
     elif type == 'tracks':
-        fieldnames = consts.track_fieldnames
+        fieldnames = track_fieldnames
     elif type == 'albums':
-        fieldnames = consts.album_fieldnames    
+        fieldnames = album_fieldnames    
     elif type == 'playlists':
-        fieldnames = consts.playlist_fieldnames         
+        fieldnames = playlist_fieldnames         
     
     with open(csv_filename, 'a', newline='', encoding='UTF8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -53,13 +53,13 @@ def load_ids_from_csv(type):
     id_set = set()
 
     if type == 'artists':
-        fieldnames = consts.artist_fieldnames
+        fieldnames = artist_fieldnames
     elif type == 'tracks':
-        fieldnames = consts.track_fieldnames
+        fieldnames = track_fieldnames
     elif type == 'albums':
-        fieldnames = consts.album_fieldnames    
+        fieldnames = album_fieldnames    
     elif type == 'playlists':
-        fieldnames = consts.playlist_fieldnames        
+        fieldnames = playlist_fieldnames        
 
     with open(csv_filename, newline='', encoding='UTF8') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -208,9 +208,6 @@ def build_track_feature_dict():
 
     return track_feature_dict
 
-def update_track_feature_dict(track_feature_dict, new_tracks):
-    return track_feature_dict
-
 def read_ids_from_csv(csv_file_path):
     ids = []
     try:
@@ -222,3 +219,19 @@ def read_ids_from_csv(csv_file_path):
         print(f"Error reading CSV file: {e}")
     
     return ids
+
+def get_tracks_from_playlist_id(pid):
+    track_ids = []
+
+    lower = 1000 * (pid // 1000)
+    upper = lower + 999
+    
+    with open(f"{DATA_DIR}/mpd.slice.{lower}-{upper}.json") as f:
+        json_data = json.load(f)
+        for playlist in json_data['playlists']:
+            if playlist['pid'] == pid:
+                for track in playlist['tracks']:
+                    track_id = track['track_uri'].split(":")[2]
+                    track_ids.append(track_id)
+
+    return track_ids

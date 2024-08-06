@@ -10,7 +10,7 @@ import feature_builder
 import utils
 
 from model import LightTrackEncoder, DeepTrackEncoder
-from evaluator import evaluate_metrics
+from metrics import evaluate_metrics
 
 def get_train_val_split(train_ratio):
     all_ids = list(range(0, 1000000))
@@ -95,7 +95,7 @@ def train_encoder(train_ids):
 def main(args):
     random.seed(10)
 
-    train_ids, val_ids = get_train_val_split(0.8)
+    train_ids, val_ids = get_train_val_split(0.999)
 
     if args.train:
         print('Training Encoder...')
@@ -104,7 +104,8 @@ def main(args):
     
     if args.eval:
         print('Evaluating Model')
-        print(val_ids)
+        mean_rprecision, mean_ndcg, mean_rec_song_clicks = evaluate_metrics(val_ids)
+        print(f"Mean R-Precision: {mean_rprecision}, Mean NDCG: {mean_ndcg}, Mean Rec Song Clicks: {mean_rec_song_clicks}")
 
 
 if __name__ == "__main__":
