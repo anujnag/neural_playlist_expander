@@ -1,4 +1,8 @@
 web_api.py
 *.csv
+
 __pycache__/
+
+features/
 spotify_million_playlist_dataset*/
+track2vec/

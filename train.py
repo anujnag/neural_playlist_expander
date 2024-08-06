@@ -1,5 +1,6 @@
 import argparse
 import csv
+import random
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,7 +12,16 @@ import utils
 from model import LightTrackEncoder, DeepTrackEncoder
 from evaluator import evaluate_metrics
 
-def train_encoder():
+def get_train_val_split(train_ratio):
+    all_ids = list(range(0, 1000000))
+    random.shuffle(all_ids)
+
+    split_idx = int(len(all_ids) * train_ratio)
+    train_ids = all_ids[:split_idx]
+    val_ids = all_ids[split_idx:]
+    return train_ids, val_ids
+
+def train_encoder(train_ids):
     # Load all track ids in the universe
     all_track_ids = utils.read_universe_from_csv('tracks')
 
@@ -83,13 +93,18 @@ def train_encoder():
         csvfile.close()
 
 def main(args):
+    random.seed(10)
+
+    train_ids, val_ids = get_train_val_split(0.8)
+
     if args.train:
         print('Training Encoder...')
-        train_encoder()
+        train_encoder(train_ids)
         print('Finished Training Model.')
     
     if args.eval:
         print('Evaluating Model')
+        print(val_ids)
 
 
 if __name__ == "__main__":

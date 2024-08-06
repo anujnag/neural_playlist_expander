@@ -210,3 +210,15 @@ def build_track_feature_dict():
 
 def update_track_feature_dict(track_feature_dict, new_tracks):
     return track_feature_dict
+
+def read_ids_from_csv(csv_file_path):
+    ids = []
+    try:
+        with open(csv_file_path, 'r') as csvfile:
+            # Read all the IDs from the single line
+            content = csvfile.read()
+            ids = content.split(',')
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+    
+    return ids
