@@ -2,23 +2,23 @@ import csv
 import json
 import random
 
-from consts import DATA_DIR 
+from consts import DATA_DIR, ParentType 
 
 
 # Load all possible ids in the universe for tracks/albums/artists 
-def read_universe_from_csv(type):
-    if type == 'artists':
-        csvfile = 'all_artists.csv'
-    elif type == 'albums':
-        csvfile = 'all_albums.csv'
-    elif type == 'tracks':
-        csvfile = 'all_tracks.csv'
+def read_universe_for_type(type: ParentType):
+    match type:
+        case ParentType.TRACKS:
+            csvfile = 'all_tracks.csv'
+        case ParentType.ARTISTS:
+            csvfile = 'all_artists.csv'
+        case ParentType.ALBUMS:
+            csvfile = 'all_albums.csv'
 
     with open(csvfile, mode='r', encoding='UTF8') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         all_ids = list(reader)[0]
         return all_ids
-
 
 # Fetch a track id present in a given playlist
 def get_positive_track(playlist_track_ids):

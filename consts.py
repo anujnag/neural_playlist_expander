@@ -3,6 +3,11 @@
 #
 from enum import Enum
 
+class ParentType(str, Enum):
+    TRACKS = 'tracks'
+    ARTISTS = 'artists'
+    ALBUMS = 'albums'
+
 class SpotifyApiEndpoint(str, Enum):
     ALBUM_INFO = 'album_info'
     ARTIST_INFO = 'artist_info'

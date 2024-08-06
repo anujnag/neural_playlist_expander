@@ -11,7 +11,7 @@ import utils
 from itertools import islice
 from spotipy.oauth2 import SpotifyClientCredentials
 
-from consts import SpotifyApiEndpoint, track_feature_dim, track_feature_map
+from consts import ParentType, SpotifyApiEndpoint, track_feature_dim, track_feature_map
 
 def build_track_feature_tensor(track_features):
     track_tensor = torch.zeros(track_feature_dim)
@@ -70,17 +70,16 @@ def build_training_features(playlist_track_ids, positive_track_id, negative_trac
     
     return playlist_tensor, pos_track_tensor, neg_track_tensor
 
-def fetch_track_data(track_ids, feature_type: SpotifyApiEndpoint):
+def fetch_spotify_data(ids, type: ParentType, endpoint_type: SpotifyApiEndpoint):
     def chunks(iterable, size):
         iterator = iter(iterable)
         for first in iterator:
             yield [first] + list(islice(iterator, size - 1))
 
-    csv_file_path = "all_tracks.csv"  # Path to the CSV file containing IDs
     base_path = "./features/tracks/audio_features/"  # Base path where JSON files will be saved
 
     # Read IDs from the CSV file
-    input_ids = utils.read_ids_from_csv(csv_file_path)
+    input_ids = utils.read_universe_for_type(type)
 
     # Filter out IDs that already have a response file
     filtered_ids = [
