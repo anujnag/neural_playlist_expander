@@ -1,3 +1,4 @@
+import argparse
 import csv
 import torch
 import torch.nn as nn
@@ -81,10 +82,20 @@ def train_encoder():
 
         csvfile.close()
 
-def main():
-    print('Training Encoder...')
-    train_encoder()
-    print('Finished Running Model.')
+def main(args):
+    if args.train:
+        print('Training Encoder...')
+        train_encoder()
+        print('Finished Training Model.')
+    
+    if args.eval:
+        print('Evaluating Model')
 
-if __name__ == '__main__':
-    main()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train/Evaluate Playlist Recommendation")
+    parser.add_argument("--train", type=bool, default=False, help="Train encoder from scratch")
+    parser.add_argument("--eval", type=bool, default=True, help="Evaluate performance on metrics")
+
+    args = parser.parse_args()
+    main(args)
