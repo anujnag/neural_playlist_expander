@@ -1,23 +1,29 @@
-from concurrent.futures import process
 import csv
 import json
+import os
+import random
 import requests
 import time
 import torch
+import spotipy
 
-import consts
 import utils
 
+from itertools import islice
+from spotipy.oauth2 import SpotifyClientCredentials
+
+from consts import TrackFeatures, track_feature_dim, track_feature_map
+
 def build_track_feature_tensor(track_features):
-    track_tensor = torch.zeros(consts.track_feature_dim)
+    track_tensor = torch.zeros(track_feature_dim)
     
-    for idx in range(consts.track_feature_dim):
-        track_tensor[idx] = float(track_features[consts.track_feature_map[idx]])
+    for idx in range(track_feature_dim):
+        track_tensor[idx] = float(track_features[track_feature_map[idx]])
 
     return track_tensor
 
 def build_playlist_feature_tensor(playlist_track_features):
-    playlist_tensor = torch.zeros(consts.track_feature_dim)
+    playlist_tensor = torch.zeros(track_feature_dim)
     num_tracks = len(playlist_track_features)
 
     for track_features in playlist_track_features:
@@ -65,7 +71,7 @@ def build_training_features(playlist_track_ids, positive_track_id, negative_trac
     
     return playlist_tensor, pos_track_tensor, neg_track_tensor
 
-def fetch_artist_data(artist_ids, processed_artists):
+def fetch_artist_data_old(artist_ids, processed_artists):
     # Get access token and build auth headers
     token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
@@ -135,7 +141,7 @@ def fetch_artist_data(artist_ids, processed_artists):
 
     return processed_artists
 
-def fetch_track_data(track_ids, processed_tracks):
+def fetch_track_data_old(track_ids, processed_tracks):
     # Get access token and build auth headers
     token_type, access_token = utils.refresh_access_token()
     auth_payload = token_type + '  ' + access_token
@@ -345,3 +351,52 @@ def fetch_album_data(album_ids, processed_albums):
         }
 
     return processed_albums
+
+def fetch_track_data(track_ids, feature_type: TrackFeatures):
+    def chunks(iterable, size):
+        iterator = iter(iterable)
+        for first in iterator:
+            yield [first] + list(islice(iterator, size - 1))
+
+    csv_file_path = "all_tracks.csv"  # Path to the CSV file containing IDs
+    base_path = "./features/tracks/audio_features/"  # Base path where JSON files will be saved
+
+    # Read IDs from the CSV file
+    input_ids = utils.read_ids_from_csv(csv_file_path)
+
+    # Filter out IDs that already have a response file
+    filtered_ids = [
+        id for id in input_ids 
+        if not os.path.exists(os.path.join(base_path, f"{id}.json")) or
+        os.path.getsize(os.path.join(base_path, f"{id}.json")) == 0
+    ]
+
+    random.shuffle(filtered_ids)
+
+    auth_manager = SpotifyClientCredentials()
+    sp = spotipy.Spotify(auth_manager=auth_manager)
+
+    # Fetch and save JSON for each chunk of 100 IDs
+    for ids_chunk in chunks(filtered_ids, 100):
+        time.sleep(10)
+        try:
+            # Join the chunk of IDs into a comma-separated string
+            ids_list = [f"spotify:track:{id}" for id in ids_chunk]
+            
+            # Make the request
+            features = sp.audio_features(tracks=ids_list)
+            
+            # Save each ID's JSON data to its corresponding file
+            # Save each track's JSON data to its corresponding file
+            for track_data in features:
+                track_id = track_data['id']
+                file_path = os.path.join(base_path, f"{track_id}.json")
+                if track_data:  # Check if the track data is not empty
+                    with open(file_path, 'w') as json_file:
+                        json.dump(track_data, json_file, indent=4)
+                    print(f"JSON data for track ID {track_id} successfully saved to {file_path}")
+                else:
+                    print(f"Track ID {track_id} has an empty response. Skipping.")
+        
+        except Exception as e:
+            print(f"An error occurred for IDs {ids_chunk}: {e}")

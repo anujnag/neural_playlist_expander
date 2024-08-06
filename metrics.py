@@ -4,7 +4,7 @@ import random
 import torch
 from tqdm import tqdm
 
-import feature_builder
+import web_api
 
 from utils import get_tracks_from_playlist_id
 
@@ -29,7 +29,7 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
             masked_lists.append(playlist_track_ids[-num_masked_tracks:])
             visible_tracks = playlist_track_ids[:-num_masked_tracks]
 
-            processed_tracks = feature_builder.fetch_track_data(visible_tracks, processed_tracks)
+            processed_tracks = web_api.fetch_track_data(visible_tracks, processed_tracks)
 
             # (1) Find  artists in the playlist
             # (2) Find the artists related to the most appearing artists
@@ -46,7 +46,7 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
                 visible_albums.append(processed_tracks[track]['album'])
             
             visible_artists = list(set(visible_artists))
-            processed_artists = feature_builder.fetch_artist_data(visible_artists, processed_artists)
+            processed_artists = web_api.fetch_artist_data(visible_artists, processed_artists)
             
             for artist in visible_artists:
                 related_artists += processed_artists[artist]['related_artists']
@@ -54,8 +54,8 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
             visible_albums = list(set(visible_albums))
             related_artists = list(set(related_artists))
 
-            processed_albums = feature_builder.fetch_album_data(visible_albums, processed_albums)
-            processed_artists = feature_builder.fetch_artist_data(related_artists, processed_artists)
+            processed_albums = web_api.fetch_album_data(visible_albums, processed_albums)
+            processed_artists = web_api.fetch_artist_data(related_artists, processed_artists)
 
             # suggest top tracks by all artists in the playlist
             for artist in visible_artists:
@@ -70,7 +70,7 @@ def generate_candidate_list(eval_playlist_ids, processed_tracks, processed_artis
                 suggested_tracks += processed_artists[artist]['top_tracks']
 
             suggested_tracks = list(set(suggested_tracks))
-            processed_tracks = feature_builder.fetch_track_data(suggested_tracks, processed_tracks)
+            processed_tracks = web_api.fetch_track_data(suggested_tracks, processed_tracks)
 
             candidate_lists.append(suggested_tracks)
             visible_lists.append(visible_tracks)    
@@ -82,10 +82,10 @@ def get_ranked_suggestions(model, visible_lists, candidate_lists):
 
     for visible_playlist, candidate_tracks in zip(visible_lists, candidate_lists):
         suggestion_scores = []
-        visible_playlist_features, _, _ = feature_builder.build_training_features(visible_playlist, None, None)
+        visible_playlist_features, _, _ = web_api.build_training_features(visible_playlist, None, None)
         playlist_embedding = model(visible_playlist_features)
         for track in candidate_tracks:
-            _, track_features, _ = feature_builder.build_training_features([], track, None)
+            _, track_features, _ = web_api.build_training_features([], track, None)
             track_embedding = model(track_features)
             suggestion_scores.append(-torch.linalg_norm(playlist_embedding - track_embedding))
 

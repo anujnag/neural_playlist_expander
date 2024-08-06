@@ -1,6 +1,10 @@
 #
 # Maintaining all constants here
 #
+from enum import Enum
+
+class TrackFeatures(str, Enum):
+    AUDIO_FEATURES = 'audio_features'
 
 DATA_DIR = "spotify_million_playlist_dataset/data"
 

@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 import consts
-import feature_builder
+import web_api
 import utils
 
 from model import LightTrackEncoder, DeepTrackEncoder
@@ -47,13 +47,13 @@ def train_encoder(train_ids):
                 negative_track_id = utils.get_negative_track(playlist_track_ids, all_track_ids)
 
                 # Ensure feature data for all track ids is cached locally
-                processed_tracks = feature_builder.fetch_track_data(
+                processed_tracks = web_api.fetch_track_data(
                     playlist_track_ids + [negative_track_id],
                     processed_tracks
                 )
 
                 # Build feature tensors
-                playlist_features, pos_track_features, neg_track_features = feature_builder.build_training_features(
+                playlist_features, pos_track_features, neg_track_features = web_api.build_training_features(
                     playlist_track_ids, positive_track_id, negative_track_id
                 )
 
