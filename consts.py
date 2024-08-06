@@ -3,8 +3,14 @@
 #
 from enum import Enum
 
-class TrackFeatures(str, Enum):
-    AUDIO_FEATURES = 'audio_features'
+class SpotifyApiEndpoint(str, Enum):
+    ALBUM_INFO = 'album_info'
+    ARTIST_INFO = 'artist_info'
+    ARTIST_RELATED_ARTISTS = 'related_artists'
+    ARTIST_TOP_TRACKS = 'top_tracks'
+    TRACK_AUDIO_ANALYSIS = 'audio_analysis'
+    TRACK_AUDIO_FEATURES = 'audio_features'
+    TRACK_INFO = 'track_info'
 
 DATA_DIR = "spotify_million_playlist_dataset/data"
 
